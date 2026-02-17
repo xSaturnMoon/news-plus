@@ -22,24 +22,39 @@ jobs:
         run: npx expo prebuild --platform ios
 
       - name: Install CocoaPods dependencies
-        run: cd ios && pod install
+        run: |
+          cd ios
+          # Proviamo a forzare l'installazione dei pod se lo workspace non esiste
+          if [ ! -d "*.xcworkspace" ]; then
+            pod install
+          fi
+
+      - name: Debug - List Files
+        run: |
+          echo "Contenuto cartella ios:"
+          ls -la ios/
 
       - name: Build App (Unsigned)
         run: |
           cd ios
           
-          # Trova lo schema
+          # Trova lo schema (solitamente news o newsplus)
           SCHEME=$(ls -d *.xcodeproj | sed 's/\.xcodeproj//' | head -n 1)
           echo "Building scheme: $SCHEME"
           
-          # Controlla se esiste lo workspace, altrimenti usa il progetto
-          if [ -d "*.xcworkspace" ] || ls *.xcworkspace >/dev/null 2>&1; then
-            WORKSPACE_ARG="-workspace $(ls -d *.xcworkspace | head -n 1)"
+          # Cerchiamo lo workspace in modo più sicuro
+          WORKSPACE=$(find . -maxdepth 1 -name "*.xcworkspace" | head -n 1)
+          
+          if [ -n "$WORKSPACE" ]; then
+            echo "Found workspace: $WORKSPACE"
+            BUILD_ARG="-workspace $WORKSPACE"
           else
-            WORKSPACE_ARG="-project $(ls -d *.xcodeproj | head -n 1)"
+            PROJECT=$(find . -maxdepth 1 -name "*.xcodeproj" | head -n 1)
+            echo "Working with project: $PROJECT"
+            BUILD_ARG="-project $PROJECT"
           fi
           
-          xcodebuild $WORKSPACE_ARG \
+          xcodebuild $BUILD_ARG \
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
