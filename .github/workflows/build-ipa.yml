@@ -1,6 +1,6 @@
 name: Build IPA (Unsigned)
 on:
-  workflow_dispatch: # Permette di lanciare il build manualmente
+  workflow_dispatch:
 
 jobs:
   build:
@@ -19,16 +19,24 @@ jobs:
         run: npm install
 
       - name: Prebuild
-        run: npx expo prebuild --platform ios --no-install
+        run: npx expo prebuild --platform ios
 
       - name: Build App (Unsigned)
         run: |
           cd ios
-          # Troviamo lo schema corretto (solitamente coincide con il nome del progetto o slug)
-          SCHEME=$(ls -d *.xcodeproj | sed 's/\.xcodeproj//')
+          
+          # Trova lo schema
+          SCHEME=$(ls -d *.xcodeproj | sed 's/\.xcodeproj//' | head -n 1)
           echo "Building scheme: $SCHEME"
           
-          xcodebuild -workspace *.xcworkspace \
+          # Controlla se esiste lo workspace, altrimenti usa il progetto
+          if [ -d "*.xcworkspace" ] || ls *.xcworkspace >/dev/null 2>&1; then
+            WORKSPACE_ARG="-workspace $(ls -d *.xcworkspace | head -n 1)"
+          else
+            WORKSPACE_ARG="-project $(ls -d *.xcodeproj | head -n 1)"
+          fi
+          
+          xcodebuild $WORKSPACE_ARG \
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
@@ -38,12 +46,14 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER=""
 
-      - name: Create IPA
+      - name: Create Payload
         run: |
           mkdir -p Payload
-          # Copiamo il file .app generato nella cartella Payload
-          cp -r ios/build/Build/Products/Release-iphoneos/*.app Payload/
-          zip -r news-plus.ipa Payload
+          # Cerchiamo il file .app indipendentemente dal nome dello schema
+          find ios/build/Build/Products/Release-iphoneos -name "*.app" -exec cp -r {} Payload/ \;
+
+      - name: Create IPA
+        run: zip -r news-plus.ipa Payload
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
