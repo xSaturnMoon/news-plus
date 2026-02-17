@@ -24,10 +24,8 @@ jobs:
       - name: Install CocoaPods dependencies
         run: |
           cd ios
-          # Proviamo a forzare l'installazione dei pod se lo workspace non esiste
-          if [ ! -d "*.xcworkspace" ]; then
-            pod install
-          fi
+          # Proviamo a forzare l'installazione dei pod per generare lo workspace
+          pod install
 
       - name: Debug - List Files
         run: |
@@ -38,23 +36,29 @@ jobs:
         run: |
           cd ios
           
-          # Trova lo schema (solitamente news o newsplus)
-          SCHEME=$(ls -d *.xcodeproj | sed 's/\.xcodeproj//' | head -n 1)
+          # Individua i file importanti senza usare glob diretti nelle variabili
+          WORKSPACE_FILE=$(find . -name "*.xcworkspace" -maxdepth 1 | head -n 1)
+          PROJECT_FILE=$(find . -name "*.xcodeproj" -maxdepth 1 | head -n 1)
+          
+          # Almeno uno dei due deve esistere
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "ERRORE: Nessun file .xcodeproj trovato!"
+            exit 1
+          fi
+
+          # Individua lo schema (nome del progetto senza estensione)
+          SCHEME=$(basename "$PROJECT_FILE" .xcodeproj)
           echo "Building scheme: $SCHEME"
           
-          # Cerchiamo lo workspace in modo più sicuro
-          WORKSPACE=$(find . -maxdepth 1 -name "*.xcworkspace" | head -n 1)
-          
-          if [ -n "$WORKSPACE" ]; then
-            echo "Found workspace: $WORKSPACE"
-            BUILD_ARG="-workspace $WORKSPACE"
+          if [ -n "$WORKSPACE_FILE" ]; then
+            echo "Found workspace: $WORKSPACE_FILE"
+            BUILD_CONFIG="-workspace $WORKSPACE_FILE"
           else
-            PROJECT=$(find . -maxdepth 1 -name "*.xcodeproj" | head -n 1)
-            echo "Working with project: $PROJECT"
-            BUILD_ARG="-project $PROJECT"
+            echo "Workspace not found, using project: $PROJECT_FILE"
+            BUILD_CONFIG="-project $PROJECT_FILE"
           fi
           
-          xcodebuild $BUILD_ARG \
+          xcodebuild $BUILD_CONFIG \
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
@@ -67,7 +71,7 @@ jobs:
       - name: Create Payload
         run: |
           mkdir -p Payload
-          # Cerchiamo il file .app indipendentemente dal nome dello schema
+          # Cerchiamo il file .app generato 
           find ios/build/Build/Products/Release-iphoneos -name "*.app" -exec cp -r {} Payload/ \;
 
       - name: Create IPA
