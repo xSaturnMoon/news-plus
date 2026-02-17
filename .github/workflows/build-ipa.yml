@@ -21,6 +21,9 @@ jobs:
       - name: Prebuild
         run: npx expo prebuild --platform ios
 
+      - name: Install CocoaPods dependencies
+        run: cd ios && pod install
+
       - name: Build App (Unsigned)
         run: |
           cd ios
