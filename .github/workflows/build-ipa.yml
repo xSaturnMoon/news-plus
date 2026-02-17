@@ -1,0 +1,52 @@
+name: Build IPA (Unsigned)
+on:
+  workflow_dispatch: # Permette di lanciare il build manualmente
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prebuild
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Build App (Unsigned)
+        run: |
+          cd ios
+          # Troviamo lo schema corretto (solitamente coincide con il nome del progetto o slug)
+          SCHEME=$(ls -d *.xcodeproj | sed 's/\.xcodeproj//')
+          echo "Building scheme: $SCHEME"
+          
+          xcodebuild -workspace *.xcworkspace \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
+
+      - name: Create IPA
+        run: |
+          mkdir -p Payload
+          # Copiamo il file .app generato nella cartella Payload
+          cp -r ios/build/Build/Products/Release-iphoneos/*.app Payload/
+          zip -r news-plus.ipa Payload
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: news-plus-ipa
+          path: news-plus.ipa
