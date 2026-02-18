@@ -1,57 +1,69 @@
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 
 const CHANNEL_ID = 'high-priority-events';
 
 export const setupNotifications = async () => {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+    try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
 
-    if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-    }
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
 
-    if (finalStatus !== 'granted') {
+        if (finalStatus !== 'granted') {
+            console.warn('Permessi notifiche negati');
+            return false;
+        }
+
+        if (Platform.OS === 'android') {
+            await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+                name: 'Promemoria Calendario',
+                importance: Notifications.AndroidImportance.MAX,
+                sound: 'default',
+                vibrationPattern: [0, 250, 250, 250],
+                enableVibrate: true,
+            });
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Errore durante setupNotifications:', error);
         return false;
     }
+};
 
-    if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-            name: 'Promemoria Calendario',
-            importance: Notifications.AndroidImportance.MAX,
-            sound: 'default',
-            vibrationPattern: [0, 250, 250, 250],
-            enableVibrate: true,
-        });
-    }
-
-    return true;
+export const getPermissionStatus = async () => {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status;
 };
 
 export const scheduleNotification = async (title: string, body: string, date: Date) => {
-    const now = Date.now();
-    const triggerTime = date.getTime();
-
-    // Calcoliamo la differenza in secondi
-    let seconds = Math.floor((triggerTime - now) / 1000);
-
-    // Se la differenza è minima o negativa (es. test cliccato subito), 
-    // forziamo almeno 1 secondo per evitare l'invio istantaneo
-    if (seconds <= 0) seconds = 1;
-
     try {
+        // Verifica permessi prima di programmare
+        const status = await getPermissionStatus();
+        if (status !== 'granted') {
+            throw new Error(`Permessi non concessi (Stato attuale: ${status})`);
+        }
+
+        const now = Date.now();
+        const triggerTime = date.getTime();
+        let seconds = Math.floor((triggerTime - now) / 1000);
+
+        if (seconds <= 0) seconds = 1;
+
         const id = await Notifications.scheduleNotificationAsync({
             content: {
                 title,
                 body,
                 sound: 'default',
                 priority: Notifications.AndroidNotificationPriority.MAX,
+                badge: 1,
                 // @ts-ignore
                 channelId: CHANNEL_ID,
             },
-            // Per Expo Notifications v0.32+, l'oggetto trigger per intervallo di tempo
-            // richiede 'seconds' e opzionalmente 'repeats'.
             trigger: {
                 seconds: seconds,
             } as any,
@@ -59,9 +71,10 @@ export const scheduleNotification = async (title: string, body: string, date: Da
 
         console.log(`Notifica programmata (ID: ${id}) tra ${seconds} secondi`);
         return id;
-    } catch (error) {
+    } catch (error: any) {
         console.error('Errore durante scheduleNotification:', error);
-        return null;
+        // Lanciamo l'errore così il chiamante può mostrare il messaggio specifico
+        throw error;
     }
 };
 

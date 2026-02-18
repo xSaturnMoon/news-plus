@@ -20,7 +20,14 @@ export default function App() {
   useEffect(() => {
     const initialize = async () => {
       await initDatabase();
-      await setupNotifications();
+      const notifsEnabled = await setupNotifications();
+      if (!notifsEnabled) {
+        const { Alert } = require('react-native');
+        Alert.alert(
+          'Permessi Notifiche',
+          'L\'app non ha i permessi per inviare notifiche. Senza di questi, non riceverai gli avvisi del calendario. Controlla le impostazioni di iOS.'
+        );
+      }
       setDbReady(true);
     };
     initialize();

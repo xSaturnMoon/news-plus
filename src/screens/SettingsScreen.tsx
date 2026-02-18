@@ -98,17 +98,19 @@ export const SettingsScreen = () => {
                 <ButtonSoft
                     title="Invia Notifica di Prova (5s)"
                     onPress={async () => {
-                        const { scheduleNotification } = require('../services/notifications');
-                        const testDate = new Date(Date.now() + 5000); // 5 secondi
-                        const id = await scheduleNotification(
-                            'Test Notifica',
-                            'Se leggi questo, le notifiche funzionano! 🎉',
-                            testDate
-                        );
-                        if (id) {
-                            Alert.alert('Inviata', 'La notifica arriverà tra 5 secondi. Chiudi l\'app o mettila in background!');
-                        } else {
-                            Alert.alert('Errore', 'Impossibile inviare la notifica. Controlla i permessi.');
+                        try {
+                            const { scheduleNotification } = require('../services/notifications');
+                            const testDate = new Date(Date.now() + 5000); // 5 secondi
+                            const id = await scheduleNotification(
+                                'Test Notifica',
+                                'Se leggi questo, le notifiche funzionano! 🎉',
+                                testDate
+                            );
+                            if (id) {
+                                Alert.alert('Inviata', 'La notifica arriverà tra 5 secondi. Chiudi l\'app o mettila in background!');
+                            }
+                        } catch (error: any) {
+                            Alert.alert('Errore Notifica', error.message || 'Errore sconosciuto');
                         }
                     }}
                     style={{ marginTop: Theme.spacing.md }}
