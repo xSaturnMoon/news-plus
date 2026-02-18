@@ -15,70 +15,83 @@ const MOCK_NEWS: NewsItem[] = [
         title: 'Nuove tecnologie per la casa intelligente',
         source: 'Tech Daily',
         excerpt: 'Le ultime innovazioni che semplificano la vita quotidiana in famiglia...',
-        date: '15 Feb 2026',
+        date: 'Oggi, 10:00',
         imageUrl: 'https://picsum.photos/seed/tech/400/200',
-        url: 'https://news.google.com',
+        url: 'https://newsdata.io',
     },
     {
         id: '2',
         title: 'Giardinaggio: consigli per la primavera',
         source: 'Natura Viva',
         excerpt: 'Preparare il giardino per la fioritura: ecco cosa fare questo mese...',
-        date: '14 Feb 2026',
+        date: 'Oggi, 09:30',
         imageUrl: 'https://picsum.photos/seed/garden/400/200',
-        url: 'https://news.google.com',
-    },
-    {
-        id: '3',
-        title: 'Ricette sane e veloci per cena',
-        source: 'Cucina & Salute',
-        excerpt: 'Tre piatti pronti in meno di 20 minuti che piaceranno a tutti...',
-        date: '13 Feb 2026',
-        imageUrl: 'https://picsum.photos/seed/food/400/200',
-        url: 'https://news.google.com',
+        url: 'https://newsdata.io',
     },
 ];
 
-const NEWS_API_KEY = 'a3e07d1a463d44cbb1c64569b4041d95';
+// Default key provided by user (NewsData.io)
+const DEFAULT_NEWS_API_KEY = 'pub_371038135476481da0927da307090b73';
 
-export const fetchNews = async (apiKey?: string): Promise<NewsItem[]> => {
+const formatRelativeDate = (date: Date) => {
+    const now = new Date();
+    const isToday = date.getDate() === now.getDate() &&
+        date.getMonth() === now.getMonth() &&
+        date.getFullYear() === now.getFullYear();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = date.getDate() === yesterday.getDate() &&
+        date.getMonth() === yesterday.getMonth() &&
+        date.getFullYear() === yesterday.getFullYear();
+
+    const timeStr = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+    if (isToday) return `Oggi, ${timeStr}`;
+    if (isYesterday) return `Ieri, ${timeStr}`;
+
+    return date.toLocaleDateString('it-IT', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    }) + `, ${timeStr}`;
+};
+
+export const fetchNews = async (apiKey?: string, query?: string): Promise<NewsItem[]> => {
     try {
-        const key = apiKey || NEWS_API_KEY;
+        const key = apiKey || DEFAULT_NEWS_API_KEY;
         if (!key) return MOCK_NEWS;
 
-        // Try top headlines first
-        let response = await fetch(
-            `https://newsapi.org/v2/top-headlines?country=it&apiKey=${key}`
-        );
+        // NewsData.io endpoint
+        let url = `https://newsdata.io/api/1/news?apikey=${key}&country=it&language=it`;
 
-        let data = await response.json();
-
-        // If no headlines, try general search for Italy
-        if (data.status === 'ok' && (!data.articles || data.articles.length === 0)) {
-            response = await fetch(
-                `https://newsapi.org/v2/everything?q=Italia&language=it&sortBy=publishedAt&apiKey=${key}`
-            );
-            data = await response.json();
+        if (query) {
+            url += `&q=${encodeURIComponent(query)}`;
         }
 
-        if (!response.ok || data.status !== 'ok') {
-            console.error('News API failed or returned error', data);
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.status !== 'success') {
+            console.error('NewsData API failed', data);
             return MOCK_NEWS;
         }
 
-        if (!data.articles || data.articles.length === 0) return MOCK_NEWS;
+        if (!data.results || data.results.length === 0) {
+            return MOCK_NEWS;
+        }
 
-        return data.articles.map((article: any, index: number) => ({
-            id: String(index),
+        return data.results.map((article: any, index: number) => ({
+            id: article.article_id || String(index) + article.pubDate,
             title: article.title,
-            source: article.source.name,
-            excerpt: article.description || 'Nessun estratto disponibile.',
-            date: new Date(article.publishedAt).toLocaleDateString('it-IT'),
-            imageUrl: article.urlToImage || `https://picsum.photos/seed/${index}/400/200`,
-            url: article.url,
+            source: article.source_id || 'News',
+            excerpt: article.description || article.content || 'Nessun estratto disponibile.',
+            date: formatRelativeDate(new Date(article.pubDate)),
+            imageUrl: article.image_url || `https://picsum.photos/seed/${index}/400/200`,
+            url: article.link,
         }));
     } catch (error) {
-        console.error('News service error:', error);
+        console.error('NewsData service error:', error);
         return MOCK_NEWS;
     }
 };

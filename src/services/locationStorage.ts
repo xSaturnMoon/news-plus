@@ -18,22 +18,6 @@ export const getSavedLocations = async (): Promise<LocationInfo[]> => {
         return [
             { id: 'current', cityName: 'Posizione Attuale', isCurrentLocation: true },
             { id: 'roma', cityName: 'Roma', isCurrentLocation: false },
-            { id: 'milano', cityName: 'Milano', isCurrentLocation: false },
-            { id: 'napoli', cityName: 'Napoli', isCurrentLocation: false },
-            { id: 'torino', cityName: 'Torino', isCurrentLocation: false },
-            { id: 'palermo', cityName: 'Palermo', isCurrentLocation: false },
-            { id: 'genova', cityName: 'Genova', isCurrentLocation: false },
-            { id: 'bologna', cityName: 'Bologna', isCurrentLocation: false },
-            { id: 'firenze', cityName: 'Firenze', isCurrentLocation: false },
-            { id: 'venezia', cityName: 'Venezia', isCurrentLocation: false },
-            { id: 'verona', cityName: 'Verona', isCurrentLocation: false },
-            { id: 'bari', cityName: 'Bari', isCurrentLocation: false },
-            { id: 'lecce', cityName: 'Lecce', isCurrentLocation: false },
-            { id: 'catania', cityName: 'Catania', isCurrentLocation: false },
-            { id: 'messina', cityName: 'Messina', isCurrentLocation: false },
-            { id: 'cagliari', cityName: 'Cagliari', isCurrentLocation: false },
-            { id: 'trento', cityName: 'Trento', isCurrentLocation: false },
-            { id: 'trieste', cityName: 'Trieste', isCurrentLocation: false },
         ];
     } catch (error) {
         console.error('Error getting saved locations:', error);

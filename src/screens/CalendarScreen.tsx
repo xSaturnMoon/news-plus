@@ -178,11 +178,11 @@ export const CalendarScreen = () => {
             <CardSoft key={dateStr} style={styles.dayCard}>
                 <View style={styles.dayHeader}>
                     <SubHeader style={styles.dayNumber}>{format(day, 'd')}</SubHeader>
-                    <Caption>{format(day, 'EEEE', { locale: it })}</Caption>
+                    <Caption style={styles.dayName}>{format(day, 'EEEE', { locale: it })}</Caption>
                 </View>
 
                 <View style={styles.eventContainer}>
-                    {dayEvents.slice(0, 2).map((event, idx) => (
+                    {dayEvents.map((event, idx) => (
                         <TouchableOpacity
                             key={idx}
                             onPress={() => handleEventPress(event)}
@@ -193,16 +193,13 @@ export const CalendarScreen = () => {
                             </Caption>
                         </TouchableOpacity>
                     ))}
-                    {dayEvents.length > 2 && (
-                        <Caption style={styles.moreText}>+{dayEvents.length - 2} altri</Caption>
-                    )}
                 </View>
 
                 <TouchableOpacity
                     style={styles.addButton}
                     onPress={() => handleAddPress(day)}
                 >
-                    <Plus {...({ size: 20, color: Theme.colors.textLight } as any)} />
+                    <Plus {...({ size: 18, color: Theme.colors.textLight } as any)} />
                 </TouchableOpacity>
             </CardSoft>
         );
@@ -359,32 +356,40 @@ const styles = StyleSheet.create({
     },
     dayCard: {
         width: '48%', // Approx 2 columns
-        minHeight: 120,
+        minHeight: 110,
         marginBottom: Theme.spacing.md,
-        justifyContent: 'space-between',
+        paddingBottom: Theme.spacing.sm,
     },
     dayHeader: {
+        flexDirection: 'row',
         alignItems: 'baseline',
+        justifyContent: 'space-between',
+        marginBottom: 4,
     },
     dayNumber: {
-        fontSize: 24,
-        color: Theme.colors.primary,
+        fontSize: 22,
+        color: Theme.colors.textLight,
+        fontWeight: 'bold',
+    },
+    dayName: {
+        fontSize: 12,
+        color: Theme.colors.textLight,
+        textTransform: 'capitalize',
     },
     eventContainer: {
         marginTop: Theme.spacing.xs,
+        flex: 1,
     },
     eventBadge: {
         backgroundColor: Theme.colors.secondary,
-        borderRadius: 8,
-        padding: 4,
-        marginBottom: 2,
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        marginBottom: 3,
     },
     eventText: {
-        fontSize: 12,
-    },
-    moreText: {
-        fontSize: 10,
-        fontStyle: 'italic',
+        fontSize: 11,
+        color: Theme.colors.text,
     },
     addButton: {
         alignSelf: 'flex-end',
