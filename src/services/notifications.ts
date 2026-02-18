@@ -48,6 +48,9 @@ export const scheduleNotification = async (title: string, body: string, date: Da
             throw new Error(`Permessi non concessi (Stato attuale: ${status})`);
         }
 
+        const seconds = Math.max(1, Math.floor((date.getTime() - Date.now()) / 1000));
+        console.log(`Programmo notifica tra ${seconds} secondi...`);
+
         const id = await Notifications.scheduleNotificationAsync({
             content: {
                 title,
@@ -58,7 +61,10 @@ export const scheduleNotification = async (title: string, body: string, date: Da
                 // @ts-ignore
                 channelId: CHANNEL_ID,
             },
-            trigger: date as any,
+            trigger: {
+                type: 'timeInterval',
+                seconds: seconds,
+            } as any,
         });
 
         console.log(`Notifica programmata (ID: ${id}) per il ${date.toLocaleString()}`);
