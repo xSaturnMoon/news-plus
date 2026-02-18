@@ -48,12 +48,6 @@ export const scheduleNotification = async (title: string, body: string, date: Da
             throw new Error(`Permessi non concessi (Stato attuale: ${status})`);
         }
 
-        const now = Date.now();
-        const triggerTime = date.getTime();
-        let seconds = Math.floor((triggerTime - now) / 1000);
-
-        if (seconds <= 0) seconds = 1;
-
         const id = await Notifications.scheduleNotificationAsync({
             content: {
                 title,
@@ -64,12 +58,10 @@ export const scheduleNotification = async (title: string, body: string, date: Da
                 // @ts-ignore
                 channelId: CHANNEL_ID,
             },
-            trigger: {
-                seconds: seconds,
-            } as any,
+            trigger: date as any,
         });
 
-        console.log(`Notifica programmata (ID: ${id}) tra ${seconds} secondi`);
+        console.log(`Notifica programmata (ID: ${id}) per il ${date.toLocaleString()}`);
         return id;
     } catch (error: any) {
         console.error('Errore durante scheduleNotification:', error);
