@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, Alert, TextStyle, StyleProp } from 'react-native';
 import { Theme } from '../theme';
 import { Header, Body, SubHeader, Caption } from '../components/Typography';
 import { CardSoft } from '../components/CardSoft';
@@ -173,12 +173,23 @@ export const CalendarScreen = () => {
     const renderDay = (day: Date) => {
         const dateStr = format(day, 'yyyy-MM-dd');
         const dayEvents = events.filter(e => e.date === dateStr);
+        const today = format(new Date(), 'yyyy-MM-dd') === dateStr;
 
         return (
-            <CardSoft key={dateStr} style={styles.dayCard}>
+            <CardSoft
+                key={dateStr}
+                style={[
+                    styles.dayCard,
+                    today ? styles.todayCard : null
+                ]}
+            >
                 <View style={styles.dayHeader}>
-                    <SubHeader style={styles.dayNumber}>{format(day, 'd')}</SubHeader>
-                    <Caption style={styles.dayName}>{format(day, 'EEEE', { locale: it })}</Caption>
+                    <SubHeader style={[styles.dayNumber, today ? styles.todayText : null]}>
+                        {format(day, 'd')}
+                    </SubHeader>
+                    <Caption style={[styles.dayName, today ? styles.todayText : null]}>
+                        {format(day, 'EEEE', { locale: it })}
+                    </Caption>
                 </View>
 
                 <View style={styles.eventContainer}>
@@ -186,9 +197,9 @@ export const CalendarScreen = () => {
                         <TouchableOpacity
                             key={idx}
                             onPress={() => handleEventPress(event)}
-                            style={styles.eventBadge}
+                            style={[styles.eventBadge, today ? { backgroundColor: 'rgba(255,255,255,0.4)' } : null]}
                         >
-                            <Caption numberOfLines={1} style={styles.eventText}>
+                            <Caption numberOfLines={1} style={[styles.eventText, today ? styles.todayText : null]}>
                                 {event.startTime} {event.title}
                             </Caption>
                         </TouchableOpacity>
@@ -199,7 +210,7 @@ export const CalendarScreen = () => {
                     style={styles.addButton}
                     onPress={() => handleAddPress(day)}
                 >
-                    <Plus {...({ size: 18, color: Theme.colors.textLight } as any)} />
+                    <Plus {...({ size: 18, color: today ? Theme.colors.text : Theme.colors.textLight } as any)} />
                 </TouchableOpacity>
             </CardSoft>
         );
@@ -443,5 +454,14 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Theme.colors.border,
         marginTop: 4,
+    },
+    todayCard: {
+        backgroundColor: Theme.colors.primary,
+        borderColor: Theme.colors.primary,
+        borderWidth: 1,
+    },
+    todayText: {
+        color: Theme.colors.text,
+        fontWeight: 'bold',
     },
 });

@@ -12,6 +12,13 @@ export interface CalendarEvent {
     enabled: number; // 0 or 1
 }
 
+export interface ShoppingItem {
+    id?: number;
+    name: string;
+    quantity: string;
+    checked: number; // 0 or 1
+}
+
 export const initDatabase = async () => {
     const db = await SQLite.openDatabaseAsync(dbName);
     await db.execAsync(`
@@ -24,6 +31,12 @@ export const initDatabase = async () => {
       date TEXT NOT NULL,
       notifications TEXT,
       enabled INTEGER DEFAULT 1
+    );
+    CREATE TABLE IF NOT EXISTS shopping_list (
+      id INTEGER PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      quantity TEXT,
+      checked INTEGER DEFAULT 0
     );
   `);
     return db;
@@ -66,4 +79,34 @@ export const deleteEvent = async (id: number) => {
 export const clearAllEvents = async () => {
     const db = await SQLite.openDatabaseAsync(dbName);
     await db.runAsync('DELETE FROM events');
+};
+
+// Shopping List operations
+export const getShoppingItems = async (): Promise<ShoppingItem[]> => {
+    const db = await SQLite.openDatabaseAsync(dbName);
+    return await db.getAllAsync<ShoppingItem>('SELECT * FROM shopping_list ORDER BY checked ASC, id DESC');
+};
+
+export const addShoppingItem = async (item: Omit<ShoppingItem, 'id'>) => {
+    const db = await SQLite.openDatabaseAsync(dbName);
+    const result = await db.runAsync(
+        'INSERT INTO shopping_list (name, quantity, checked) VALUES (?, ?, ?)',
+        [item.name, item.quantity, item.checked]
+    );
+    return result.lastInsertRowId;
+};
+
+export const toggleShoppingItem = async (id: number, checked: number) => {
+    const db = await SQLite.openDatabaseAsync(dbName);
+    await db.runAsync('UPDATE shopping_list SET checked = ? WHERE id = ?', [checked, id]);
+};
+
+export const deleteShoppingItem = async (id: number) => {
+    const db = await SQLite.openDatabaseAsync(dbName);
+    await db.runAsync('DELETE FROM shopping_list WHERE id = ?', [id]);
+};
+
+export const clearCheckedItems = async () => {
+    const db = await SQLite.openDatabaseAsync(dbName);
+    await db.runAsync('DELETE FROM shopping_list WHERE checked = 1');
 };

@@ -2,19 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
 import { Theme } from './src/theme';
 import { Header, Body } from './src/components/Typography';
+import { HomeScreen } from './src/screens/HomeScreen';
 import { CalendarScreen } from './src/screens/CalendarScreen';
 import { WeatherScreen } from './src/screens/WeatherScreen';
 import { NewsScreen } from './src/screens/NewsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { ShoppingListScreen } from './src/screens/ShoppingListScreen';
 import { initDatabase } from './src/services/database';
 import { setupNotifications } from './src/services/notifications';
-import { Settings as SettingsIcon } from 'lucide-react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { ChevronLeft } from 'lucide-react-native';
+import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
 
-type Tab = 'Calendario' | 'Meteo' | 'Notizie' | 'Settings';
+type Section = 'Home' | 'Calendario' | 'Meteo' | 'Notizie' | 'Spesa';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('Calendario');
+  const [activeSection, setActiveSection] = useState<Section>('Home');
   const [dbReady, setDbReady] = useState(false);
 
   useEffect(() => {
@@ -34,27 +36,15 @@ export default function App() {
   }, []);
 
   const renderContent = () => {
-    switch (activeTab) {
+    switch (activeSection) {
+      case 'Home': return <HomeScreen onNavigate={setActiveSection} />;
       case 'Calendario': return <CalendarScreen />;
       case 'Meteo': return <WeatherScreen />;
       case 'Notizie': return <NewsScreen />;
-      case 'Settings': return <SettingsScreen />;
-      default: return <CalendarScreen />;
+      case 'Spesa': return <ShoppingListScreen />;
+      default: return <HomeScreen onNavigate={setActiveSection} />;
     }
   };
-
-  const TabButton = ({ title, active }: { title: Tab, active: boolean }) => (
-    <TouchableOpacity
-      onPress={() => setActiveTab(title)}
-      style={[
-        styles.tabButton,
-        active ? styles.tabButtonActive : null,
-        active ? Theme.shadows.light : null
-      ]}
-    >
-      <Body style={[styles.tabText, active ? styles.tabTextActive : null] as any}>{title}</Body>
-    </TouchableOpacity>
-  );
 
   if (!dbReady) return null;
 
@@ -64,22 +54,22 @@ export default function App() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Header>news+</Header>
-        <TouchableOpacity onPress={() => setActiveTab('Settings')}>
-          <SettingsIcon {...({ color: activeTab === 'Settings' ? Theme.colors.primary : Theme.colors.text, size: 28 } as any)} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Segmented Control / Top Tabs */}
-      <View style={styles.tabBar}>
-        <TabButton title="Calendario" active={activeTab === 'Calendario'} />
-        <TabButton title="Meteo" active={activeTab === 'Meteo'} />
-        <TabButton title="Notizie" active={activeTab === 'Notizie'} />
+        <View style={styles.headerLeft}>
+          {activeSection !== 'Home' && (
+            <TouchableOpacity
+              onPress={() => setActiveSection('Home')}
+              style={styles.backButton}
+            >
+              <ChevronLeft color={Theme.colors.text} size={28} />
+            </TouchableOpacity>
+          )}
+          <Header style={styles.logoText}>news+</Header>
+        </View>
       </View>
 
       <Animated.View
-        key={activeTab}
-        entering={FadeIn.duration(400)}
+        key={activeSection}
+        entering={activeSection === 'Home' ? FadeIn.duration(400) : SlideInRight.duration(400)}
         style={styles.content}
       >
         {renderContent()}
@@ -101,30 +91,16 @@ const styles = StyleSheet.create({
     paddingVertical: Theme.spacing.md,
     backgroundColor: Theme.colors.white,
   },
-  tabBar: {
+  headerLeft: {
     flexDirection: 'row',
-    backgroundColor: Theme.colors.background,
-    marginHorizontal: Theme.spacing.lg,
-    padding: 6,
-    borderRadius: Theme.borderRadius.md,
-    marginBottom: Theme.spacing.md,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: Theme.spacing.sm,
     alignItems: 'center',
-    borderRadius: Theme.borderRadius.sm,
   },
-  tabButtonActive: {
-    backgroundColor: Theme.colors.white,
+  backButton: {
+    marginRight: Theme.spacing.sm,
+    marginLeft: -Theme.spacing.xs,
   },
-  tabText: {
-    fontSize: 14,
-    color: Theme.colors.textLight,
-  },
-  tabTextActive: {
-    color: Theme.colors.text,
-    fontWeight: '600',
+  logoText: {
+    fontSize: 28,
   },
   content: {
     flex: 1,

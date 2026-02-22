@@ -1,10 +1,10 @@
 import React from 'react';
-import { Text, TextStyle, TextProps } from 'react-native';
+import { Text, TextStyle, TextProps, StyleProp } from 'react-native';
 import { Theme } from '../theme';
 
 interface TypographyProps extends TextProps {
     children: React.ReactNode;
-    style?: TextStyle;
+    style?: StyleProp<TextStyle>;
 }
 
 export const Header = ({ children, style, ...props }: TypographyProps) => (

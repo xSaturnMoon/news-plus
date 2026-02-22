@@ -1,11 +1,11 @@
 import React from 'react';
-import { StyleSheet, ViewStyle } from 'react-native';
+import { StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Theme } from '../theme';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 interface CardSoftProps {
     children: React.ReactNode;
-    style?: ViewStyle;
+    style?: StyleProp<ViewStyle>;
     variant?: 'white' | 'pastel';
 }
 

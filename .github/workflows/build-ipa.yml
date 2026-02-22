@@ -1,5 +1,7 @@
 name: Build IPA (Unsigned)
 on:
+  push:
+    branches: [ main, build-savepoint ]
   workflow_dispatch:
 
 jobs:
