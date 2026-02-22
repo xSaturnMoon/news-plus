@@ -61,7 +61,8 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     pop: {
-        color: Theme.colors.textLight,
+        color: '#000000',
         fontSize: 10,
+        fontWeight: 'bold',
     }
 });

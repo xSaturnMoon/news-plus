@@ -1,24 +1,31 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Body, Caption } from '../Typography';
 import { Theme } from '../../theme';
 
 interface DailyForecastProps {
     data: Array<{
         date: string;
+        dateKey: string;
         tempMin: number;
         tempMax: number;
         icon: string;
         popMax: number;
     }>;
     getWeatherEmoji: (icon: string) => string;
+    onPressDay?: (dateKey: string, dayName: string) => void;
 }
 
-export const DailyForecast: React.FC<DailyForecastProps> = ({ data, getWeatherEmoji }) => {
+export const DailyForecast: React.FC<DailyForecastProps> = ({ data, getWeatherEmoji, onPressDay }) => {
     return (
         <View style={styles.container}>
             {data.map((day, index) => (
-                <View key={index} style={styles.row}>
+                <TouchableOpacity
+                    key={index}
+                    style={styles.row}
+                    onPress={() => onPressDay?.(day.dateKey, day.date)}
+                    activeOpacity={0.7}
+                >
                     <Body style={styles.dayName}>{day.date}</Body>
                     <View style={styles.iconContainer}>
                         <Body style={styles.emoji}>{getWeatherEmoji(day.icon)}</Body>
@@ -28,11 +35,10 @@ export const DailyForecast: React.FC<DailyForecastProps> = ({ data, getWeatherEm
                         <Caption style={styles.minTemp}>{day.tempMin}°</Caption>
                         <View style={styles.barContainer}>
                             <View style={styles.barBg} />
-                            {/* In a real app, we'd calculate the position based on overall min/max */}
                         </View>
                         <Body style={styles.maxTemp}>{day.tempMax}°</Body>
                     </View>
-                </View>
+                </TouchableOpacity>
             ))}
         </View>
     );
@@ -66,7 +72,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
     },
     pop: {
-        color: Theme.colors.textLight,
+        color: '#000000', // Explicit solid black
         fontSize: 10,
         fontWeight: 'bold',
     },

@@ -5,7 +5,7 @@ import { Header, Body, SubHeader, Caption } from '../components/Typography';
 import { CardSoft } from '../components/CardSoft';
 import { ButtonSoft } from '../components/ButtonSoft';
 import { ModalForm } from '../components/ModalForm';
-import { Plus, Bell, Trash2 } from 'lucide-react-native';
+import { Plus, Bell, Trash2, Watch, Calendar, Type, Clock } from 'lucide-react-native';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from 'date-fns';
 import { it } from 'date-fns/locale';
 import * as db from '../services/database';
@@ -236,35 +236,64 @@ export const CalendarScreen = () => {
                 onClose={() => setModalVisible(false)}
                 title="Nuovo Evento"
             >
-                <Body style={styles.label}>Titolo</Body>
-                <TextInput
-                    style={styles.input}
-                    value={title}
-                    onChangeText={setTitle}
-                    placeholder="Es: Visita medica"
-                />
+                <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+                    <View style={styles.inputCard}>
+                        <View style={styles.inputIconContainer}>
+                            <Type size={20} color={Theme.colors.text} />
+                        </View>
+                        <View style={styles.inputContent}>
+                            <Caption style={styles.inputLabel}>Titolo</Caption>
+                            <TextInput
+                                style={styles.textInput}
+                                value={title}
+                                onChangeText={setTitle}
+                                placeholder="Cosa devi fare?"
+                                placeholderTextColor={Theme.colors.textLight + '60'}
+                            />
+                        </View>
+                    </View>
 
-                <Body style={styles.label}>Orario Inizio</Body>
-                <TextInput
-                    style={styles.input}
-                    value={startTime}
-                    onChangeText={setStartTime}
-                    placeholder="Es: 10:30"
-                />
+                    <View style={styles.row}>
+                        <View style={[styles.inputCard, { flex: 1, marginRight: Theme.spacing.sm }]}>
+                            <View style={styles.inputIconContainer}>
+                                <Clock size={20} color={Theme.colors.text} />
+                            </View>
+                            <View style={styles.inputContent}>
+                                <Caption style={styles.inputLabel}>Inizio</Caption>
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={startTime}
+                                    onChangeText={setStartTime}
+                                    placeholder="10:30"
+                                    placeholderTextColor={Theme.colors.textLight + '60'}
+                                />
+                            </View>
+                        </View>
 
-                <Body style={styles.label}>Orario Fine (Opzionale)</Body>
-                <TextInput
-                    style={styles.input}
-                    value={endTime}
-                    onChangeText={setEndTime}
-                    placeholder="Es: 11:30"
-                />
+                        <View style={[styles.inputCard, { flex: 1 }]}>
+                            <View style={styles.inputIconContainer}>
+                                <Watch size={20} color={Theme.colors.text} />
+                            </View>
+                            <View style={styles.inputContent}>
+                                <Caption style={styles.inputLabel}>Fine</Caption>
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={endTime}
+                                    onChangeText={setEndTime}
+                                    placeholder="11:30"
+                                    placeholderTextColor={Theme.colors.textLight + '60'}
+                                />
+                            </View>
+                        </View>
+                    </View>
 
-                <ButtonSoft
-                    title="Salva"
-                    onPress={handleSaveEvent}
-                    style={{ marginTop: Theme.spacing.lg }}
-                />
+                    <ButtonSoft
+                        title="Salva Evento"
+                        onPress={handleSaveEvent}
+                        style={styles.saveBtn}
+                    />
+                    <View style={{ height: Theme.spacing.md }} />
+                </ScrollView>
             </ModalForm>
 
             {/* Detail Modal */}
@@ -279,14 +308,21 @@ export const CalendarScreen = () => {
                         <Body>{selectedEvent.startTime} {selectedEvent.endTime ? `- ${selectedEvent.endTime}` : ''}</Body>
                         <Body style={{ marginTop: Theme.spacing.md }}>Data: {selectedEvent.date}</Body>
 
-                        <View style={styles.notificationSection}>
+                        <View style={styles.notificationCard}>
                             <View style={styles.switchRow}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <Bell size={20} color={Theme.colors.primary} style={{ marginRight: 8 }} />
-                                    <Body style={{ fontWeight: 'bold' }}>Notifica Personalizzata</Body>
+                                <View style={styles.notifTitleRow}>
+                                    <View style={[styles.notifIconCircle, { backgroundColor: selectedEvent.enabled === 1 ? Theme.colors.primary + '20' : Theme.colors.secondary }]}>
+                                        <Bell size={20} color={selectedEvent.enabled === 1 ? Theme.colors.primary : Theme.colors.textLight} />
+                                    </View>
+                                    <View>
+                                        <Body style={{ fontWeight: '700' }}>Promemoria</Body>
+                                        <Caption>{selectedEvent.enabled === 1 ? 'Attivo' : 'Disattivato'}</Caption>
+                                    </View>
                                 </View>
                                 <Switch
                                     value={selectedEvent.enabled === 1}
+                                    trackColor={{ false: Theme.colors.secondary, true: Theme.colors.primary + '80' }}
+                                    thumbColor={selectedEvent.enabled === 1 ? Theme.colors.primary : '#f4f3f4'}
                                     onValueChange={async (val) => {
                                         const updated = { ...selectedEvent, enabled: val ? 1 : 0 };
                                         await db.updateEvent(updated);
@@ -298,31 +334,37 @@ export const CalendarScreen = () => {
 
                             {selectedEvent.enabled === 1 && (
                                 <View style={styles.notifControls}>
-                                    <Caption style={styles.notifLabel}>Quando vuoi ricevere l'avviso?</Caption>
-                                    <View style={styles.notifInputs}>
-                                        <View style={{ flex: 1, marginRight: 10 }}>
-                                            <Caption>Giorno</Caption>
-                                            <TextInput
-                                                style={styles.smallInput}
-                                                value={notifDate}
-                                                placeholder="Data"
-                                                onChangeText={setNotifDate}
-                                            />
+                                    <View style={styles.notifInputsRow}>
+                                        <View style={styles.notifInputGroup}>
+                                            <View style={styles.smallInputCard}>
+                                                <Calendar size={16} color={Theme.colors.primary} style={{ marginRight: 6 }} />
+                                                <TextInput
+                                                    style={styles.notifTextInput}
+                                                    value={notifDate}
+                                                    placeholder="AAAA-MM-GG"
+                                                    onChangeText={setNotifDate}
+                                                    placeholderTextColor={Theme.colors.textLight + '80'}
+                                                />
+                                            </View>
                                         </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Caption>Ora</Caption>
-                                            <TextInput
-                                                style={styles.smallInput}
-                                                value={notifTime}
-                                                placeholder="Ora"
-                                                onChangeText={setNotifTime}
-                                            />
+                                        <View style={styles.notifInputGroup}>
+                                            <View style={styles.smallInputCard}>
+                                                <Clock size={16} color={Theme.colors.primary} style={{ marginRight: 6 }} />
+                                                <TextInput
+                                                    style={styles.notifTextInput}
+                                                    value={notifTime}
+                                                    placeholder="HH:MM"
+                                                    onChangeText={setNotifTime}
+                                                    placeholderTextColor={Theme.colors.textLight + '80'}
+                                                />
+                                            </View>
                                         </View>
                                     </View>
                                     <ButtonSoft
-                                        title="Programma Notifica"
+                                        title="Imposta Promemoria"
                                         onPress={handleScheduleNotif}
-                                        style={{ marginTop: 10, minHeight: 40 }}
+                                        style={styles.scheduleBtn}
+                                        textStyle={{ fontSize: 14 }}
                                     />
                                 </View>
                             )}
@@ -332,7 +374,7 @@ export const CalendarScreen = () => {
                             variant="error"
                             title="Elimina Evento"
                             onPress={handleDeleteEvent}
-                            style={{ marginTop: Theme.spacing.xl }}
+                            style={{ marginTop: Theme.spacing.md, marginBottom: Theme.spacing.md }}
                         />
                     </View>
                 )}
@@ -366,10 +408,10 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     dayCard: {
-        width: '48%', // Approx 2 columns
+        width: '48%',
         minHeight: 110,
         marginBottom: Theme.spacing.md,
-        paddingBottom: Theme.spacing.sm,
+        padding: Theme.spacing.sm,
     },
     dayHeader: {
         flexDirection: 'row',
@@ -406,59 +448,118 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-end',
         padding: 4,
     },
-    label: {
-        marginTop: Theme.spacing.md,
-        marginBottom: Theme.spacing.xs,
-        fontWeight: '600',
+    formContainer: {
+        paddingVertical: Theme.spacing.sm,
     },
-    input: {
+    inputCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: Theme.colors.background,
-        borderRadius: Theme.borderRadius.sm,
+        borderRadius: Theme.borderRadius.md,
         padding: Theme.spacing.md,
-        fontSize: 16,
+        marginBottom: Theme.spacing.md,
         borderWidth: 1,
         borderColor: Theme.colors.border,
+    },
+    inputIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: Theme.colors.white,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: Theme.spacing.md,
+        ...Theme.shadows.light,
+    },
+    inputContent: {
+        flex: 1,
+    },
+    inputLabel: {
+        fontSize: 10,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        color: Theme.colors.textLight,
+        marginBottom: 2,
+    },
+    textInput: {
+        fontSize: 16,
+        color: Theme.colors.text,
+        fontWeight: '500',
+        padding: 0,
+    },
+    row: {
+        flexDirection: 'row',
+        marginBottom: Theme.spacing.sm,
+    },
+    saveBtn: {
+        marginTop: Theme.spacing.xs,
+    },
+    notificationCard: {
+        marginTop: Theme.spacing.md,
+        backgroundColor: Theme.colors.white,
+        borderRadius: Theme.borderRadius.lg,
+        padding: Theme.spacing.md,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        ...Theme.shadows.light,
+    },
+    notifTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    notifIconCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
     },
     switchRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: Theme.spacing.sm,
-    },
-    notificationSection: {
-        marginTop: Theme.spacing.xl,
-        paddingTop: Theme.spacing.md,
-        borderTopWidth: 1,
-        borderTopColor: Theme.colors.border,
     },
     notifControls: {
         marginTop: Theme.spacing.md,
-        backgroundColor: Theme.colors.secondary + '20', // Light transparency
-        padding: Theme.spacing.md,
-        borderRadius: Theme.borderRadius.md,
+        paddingTop: Theme.spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: Theme.colors.border + '50',
     },
-    notifLabel: {
-        marginBottom: 8,
-        color: Theme.colors.text,
-        fontWeight: '600',
-    },
-    notifInputs: {
+    notifInputsRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
     },
-    smallInput: {
+    notifInputGroup: {
+        flex: 1,
+        marginHorizontal: 5,
+    },
+    smallInputCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: Theme.colors.background,
         borderRadius: Theme.borderRadius.sm,
-        padding: 8,
-        fontSize: 14,
+        paddingHorizontal: 8,
+        paddingVertical: 10,
         borderWidth: 1,
         borderColor: Theme.colors.border,
-        marginTop: 4,
+    },
+    notifTextInput: {
+        flex: 1,
+        fontSize: 13,
+        color: Theme.colors.text,
+        padding: 0,
+    },
+    scheduleBtn: {
+        marginTop: Theme.spacing.md,
+        minHeight: 44,
+        backgroundColor: Theme.colors.primary,
     },
     todayCard: {
         backgroundColor: Theme.colors.primary,
         borderColor: Theme.colors.primary,
         borderWidth: 1,
+        ...Theme.shadows.medium,
     },
     todayText: {
         color: Theme.colors.text,

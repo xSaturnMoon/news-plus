@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Dimensions, FlatList } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Dimensions, FlatList, PanResponder, Animated } from 'react-native';
 import { Theme } from '../theme';
 import { Header, Body, SubHeader, Caption } from '../components/Typography';
 import * as weatherService from '../services/weather';
@@ -12,6 +12,7 @@ import { DailyForecast } from '../components/weather/DailyForecast';
 import { WeatherDetails } from '../components/weather/WeatherDetails';
 import { CitySearchModal } from '../components/weather/CitySearchModal';
 import { ButtonSoft } from '../components/ButtonSoft';
+import { ModalForm } from '../components/ModalForm';
 
 const { width } = Dimensions.get('window');
 
@@ -38,7 +39,68 @@ export const WeatherScreen = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [searchVisible, setSearchVisible] = useState(false);
+    const [dayModalVisible, setDayModalVisible] = useState(false);
+    const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+    const [selectedDayName, setSelectedDayName] = useState('');
+    const scrollAnim = useRef(new Animated.Value(0)).current;
+
+    // Track & Scroll measurement for perfect interaction
+    const [trackWidth, setTrackWidth] = useState(0);
+    const trackX = useRef(0);
+    const thumbWidth = 45;
+    const isDragging = useRef(false);
+
     const flatListRef = useRef<FlatList>(null);
+    const hourlyScrollRef = useRef<ScrollView>(null);
+    const hourlyContentWidth = useRef(0);
+    const hourlyLayoutWidth = useRef(0);
+
+    const trackRef = useRef<View>(null);
+
+    const onTrackLayout = () => {
+        // Measure the track's position on screen for accurate PanResponder mapping
+        trackRef.current?.measure((x, y, w, h, px, py) => {
+            if (w > 0) {
+                setTrackWidth(w);
+                trackX.current = px;
+            }
+        });
+    };
+
+    const updateScrollFromProgress = (progress: number) => {
+        const totalScrollable = hourlyContentWidth.current - hourlyLayoutWidth.current;
+        if (hourlyScrollRef.current && totalScrollable > 0) {
+            const scrollTo = progress * totalScrollable;
+            hourlyScrollRef.current.scrollTo({ x: scrollTo, animated: false });
+            scrollAnim.setValue(progress);
+        }
+    };
+
+    const panResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: () => true,
+            onPanResponderGrant: (e, gestureState) => {
+                isDragging.current = true;
+                const relativeX = gestureState.x0 - trackX.current;
+                const maxTravel = trackWidth - thumbWidth;
+                if (maxTravel > 0) {
+                    const progress = Math.min(Math.max((relativeX - thumbWidth / 2) / maxTravel, 0), 1);
+                    updateScrollFromProgress(progress);
+                }
+            },
+            onPanResponderMove: (e, gestureState) => {
+                const relativeX = gestureState.moveX - trackX.current;
+                const maxTravel = trackWidth - thumbWidth;
+                if (maxTravel > 0) {
+                    const progress = Math.min(Math.max((relativeX - thumbWidth / 2) / maxTravel, 0), 1);
+                    updateScrollFromProgress(progress);
+                }
+            },
+            onPanResponderRelease: () => { isDragging.current = false; },
+            onPanResponderTerminate: () => { isDragging.current = false; },
+        })
+    ).current;
 
     useEffect(() => {
         init();
@@ -127,6 +189,12 @@ export const WeatherScreen = () => {
         }
     };
 
+    const handleDayPress = (dateKey: string, dayName: string) => {
+        setSelectedDayKey(dateKey);
+        setSelectedDayName(dayName);
+        setDayModalVisible(true);
+    };
+
     if (loading && !refreshing) {
         return (
             <View style={styles.center}>
@@ -204,6 +272,7 @@ export const WeatherScreen = () => {
                                 tempMax: Math.round(isCelsius ? d.tempMax : (d.tempMax * 9 / 5) + 32)
                             }))}
                             getWeatherEmoji={getWeatherEmoji}
+                            onPressDay={handleDayPress}
                         />
 
                         <WeatherDetails current={{
@@ -228,6 +297,19 @@ export const WeatherScreen = () => {
         );
     };
 
+    const activeWeather = weatherData[locations[currentIndex]?.id];
+    let selectedDayHourly = selectedDayKey && activeWeather
+        ? activeWeather.allForecasts.filter(h => h.dateKey === selectedDayKey)
+        : [];
+
+    // If selecting today, filter out past hours
+    const todayKey = new Date().toISOString().split('T')[0];
+    if (selectedDayKey === todayKey) {
+        const now = Math.floor(Date.now() / 1000);
+        const currentHourStart = now - (now % 3600);
+        selectedDayHourly = selectedDayHourly.filter(h => h.dt >= currentHourStart);
+    }
+
     return (
         <View style={styles.container}>
             <FlatList
@@ -249,6 +331,79 @@ export const WeatherScreen = () => {
                 onClose={() => setSearchVisible(false)}
                 onSelectCity={handleAddCity}
             />
+
+            <ModalForm
+                visible={dayModalVisible}
+                onClose={() => {
+                    setDayModalVisible(false);
+                    scrollAnim.setValue(0);
+                }}
+                title={`Meteo ${selectedDayName}`}
+            >
+                <View style={styles.hourlyListContainer}>
+                    <ScrollView
+                        ref={hourlyScrollRef}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.hourlyScroll}
+                        onContentSizeChange={(w) => { hourlyContentWidth.current = w; }}
+                        onLayout={(e) => { hourlyLayoutWidth.current = e.nativeEvent.layout.width; }}
+                        onScroll={(e) => {
+                            if (isDragging.current) return;
+
+                            const contentOffset = e.nativeEvent.contentOffset.x;
+                            const contentWidth = e.nativeEvent.contentSize.width;
+                            const layoutWidth = e.nativeEvent.layoutMeasurement.width;
+
+                            hourlyContentWidth.current = contentWidth;
+                            hourlyLayoutWidth.current = layoutWidth;
+
+                            if (contentWidth > layoutWidth) {
+                                scrollAnim.setValue(Math.min(Math.max(contentOffset / (contentWidth - layoutWidth), 0), 1));
+                            }
+                        }}
+                        scrollEventThrottle={16}
+                    >
+                        {selectedDayHourly.map((hour, idx) => (
+                            <View key={idx} style={styles.hourCard}>
+                                <Caption style={styles.hourTime}>{hour.time}</Caption>
+                                <Body style={styles.hourEmoji}>{getWeatherEmoji(hour.icon)}</Body>
+                                <Body style={styles.hourTemp}>{convertTemp(hour.temp)}°</Body>
+                                {hour.pop > 0 && <Caption style={styles.hourPop}>{hour.pop}%</Caption>}
+                            </View>
+                        ))}
+                    </ScrollView>
+
+                    <View
+                        ref={trackRef}
+                        onLayout={onTrackLayout}
+                        style={styles.scrollTrack}
+                        {...panResponder.panHandlers}
+                    >
+                        <View style={styles.scrollTrackBg} />
+                        <Animated.View
+                            style={[
+                                styles.scrollThumb,
+                                {
+                                    transform: [
+                                        {
+                                            translateX: scrollAnim.interpolate({
+                                                inputRange: [0, 1],
+                                                outputRange: [0, trackWidth > 0 ? (trackWidth - thumbWidth) : 0],
+                                                extrapolate: 'clamp'
+                                            })
+                                        }
+                                    ]
+                                }
+                            ]}
+                        />
+                    </View>
+
+                    <View style={styles.infoRow}>
+                        <Caption style={styles.infoText}>Scorri utilizzando due dita</Caption>
+                    </View>
+                </View>
+            </ModalForm>
         </View>
     );
 };
@@ -348,5 +503,66 @@ const styles = StyleSheet.create({
     },
     deleteBtn: {
         width: '100%',
+    },
+    hourlyListContainer: {
+        paddingVertical: Theme.spacing.md,
+    },
+    hourlyScroll: {
+        paddingVertical: 10,
+    },
+    hourCard: {
+        alignItems: 'center',
+        backgroundColor: Theme.colors.white,
+        padding: Theme.spacing.md,
+        borderRadius: Theme.borderRadius.md,
+        marginRight: Theme.spacing.sm,
+        width: 75,
+        ...Theme.shadows.light,
+    },
+    hourTime: {
+        marginBottom: 5,
+        fontWeight: 'bold',
+    },
+    hourEmoji: {
+        fontSize: 24,
+        marginVertical: 4,
+    },
+    hourTemp: {
+        fontWeight: '600',
+        fontSize: 18,
+    },
+    hourPop: {
+        marginTop: 2,
+        color: '#000000',
+        fontWeight: 'bold',
+    },
+    infoRow: {
+        marginTop: 15,
+        alignItems: 'center',
+    },
+    infoText: {
+        fontStyle: 'italic',
+        opacity: 0.6,
+    },
+    scrollTrack: {
+        height: 30,
+        width: '60%',
+        backgroundColor: 'transparent',
+        alignSelf: 'center',
+        marginTop: 5,
+        justifyContent: 'center',
+    },
+    scrollTrackBg: {
+        height: 4,
+        width: '100%',
+        backgroundColor: 'rgba(0,0,0,0.06)',
+        borderRadius: 2,
+        position: 'absolute',
+    },
+    scrollThumb: {
+        height: 6,
+        width: 45,
+        backgroundColor: Theme.colors.text,
+        borderRadius: 3,
     }
 });

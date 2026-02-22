@@ -38,9 +38,12 @@ export interface WeatherData {
     }>;
 }
 
-const processForecastData = (forecastData: any) => {
+const processForecastData = (forecastData: any, currentData?: any) => {
+    const now = Math.floor(Date.now() / 1000);
+    const startOfCurrentHour = now - (now % 3600);
+
     // Original 3-hour blocks
-    const rawBlocks = forecastData.list.map((item: any) => ({
+    let rawBlocks = forecastData.list.map((item: any) => ({
         dt: item.dt,
         temp: item.main.temp,
         icon: item.weather[0].icon,
@@ -49,16 +52,34 @@ const processForecastData = (forecastData: any) => {
         rain: item.rain ? item.rain['3h'] : 0,
     }));
 
-    // Interpolate to every hour for the first 48 hours
-    const allForecasts: any[] = [];
+    // Prepend current weather as the first node, but normalized to start of hour
+    if (currentData) {
+        const currentHourBlock = {
+            dt: startOfCurrentHour,
+            temp: currentData.main.temp,
+            icon: currentData.weather[0].icon,
+            description: currentData.weather[0].description,
+            pop: rawBlocks.length > 0 ? rawBlocks[0].pop : 0,
+            rain: currentData.rain ? currentData.rain['1h'] : 0,
+        };
+
+        // Remove any forecast blocks that are in the past or would overlap with "now"
+        rawBlocks = rawBlocks.filter((b: any) => b.dt > startOfCurrentHour);
+        rawBlocks = [currentHourBlock, ...rawBlocks];
+    }
+
+    // Interpolate to EVERY hour for the first 96 hours (to cover most of the 5-day forecast)
+    let allForecasts: any[] = [];
     if (rawBlocks.length > 0) {
         for (let i = 0; i < rawBlocks.length - 1; i++) {
             const current = rawBlocks[i];
             const next = rawBlocks[i + 1];
 
-            // Add the 3 hours between blocks
-            for (let h = 0; h < 3; h++) {
-                const ratio = h / 3;
+            const secondsBetween = next.dt - current.dt;
+            const hoursInGap = Math.round(secondsBetween / 3600);
+
+            for (let h = 0; h < hoursInGap; h++) {
+                const ratio = h / hoursInGap;
                 const interpolatedTime = current.dt + (h * 3600);
                 const date = new Date(interpolatedTime * 1000);
 
@@ -67,16 +88,32 @@ const processForecastData = (forecastData: any) => {
                     dateKey: date.toISOString().split('T')[0],
                     time: date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
                     temp: Math.round(current.temp + (next.temp - current.temp) * ratio),
-                    icon: h < 2 ? current.icon : next.icon, // Transition icon halfway
-                    description: h < 2 ? current.description : next.description,
+                    icon: ratio < 0.5 ? current.icon : next.icon,
+                    description: ratio < 0.5 ? current.description : next.description,
                     pop: Math.round(current.pop + (next.pop - current.pop) * ratio),
                     rain: current.rain,
                 });
             }
         }
+        // Add the very last raw block
+        const last = rawBlocks[rawBlocks.length - 1];
+        const lastDate = new Date(last.dt * 1000);
+        allForecasts.push({
+            dt: last.dt,
+            dateKey: lastDate.toISOString().split('T')[0],
+            time: lastDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+            temp: Math.round(last.temp),
+            icon: last.icon,
+            description: last.description,
+            pop: last.pop,
+            rain: last.rain,
+        });
     }
 
-    // Grouping for daily summary (using the raw hourly data for accuracy)
+    // Ensure we start from current hour and sort (just in case)
+    allForecasts = allForecasts.filter(f => f.dt >= startOfCurrentHour).sort((a, b) => a.dt - b.dt);
+
+    // Grouping for daily summary
     const dailyGroups: any = {};
     allForecasts.forEach((item: any) => {
         if (!dailyGroups[item.dateKey]) {
@@ -122,7 +159,7 @@ export const fetchWeatherByCoords = async (latitude: number, longitude: number, 
         const currentData = await currentRes.json();
         const forecastData = await forecastRes.json();
 
-        const { allForecasts, forecastList } = processForecastData(forecastData);
+        const { allForecasts, forecastList } = processForecastData(forecastData, currentData);
 
         return {
             city: currentData.name,
