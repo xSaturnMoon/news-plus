@@ -45,7 +45,7 @@ export const startShoppingLiveActivity = async (listName: string, items: Shoppin
                 .map(i => `• ${i.name.toUpperCase()} (${i.quantity})`)
                 .join('\n');
 
-            const body = `${listItems}\n\n⚠️ Questa è un'anteprima base. La grafica interattiva Apple (Live Activity) sarà attiva nella versione finale (IPA).`;
+            const body = listItems;
 
             await notifications.scheduleNotification(
                 '🛒 Lista Della Spesa',
