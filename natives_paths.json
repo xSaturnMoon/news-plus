@@ -1,0 +1,16 @@
+[
+  "Natives/resources/Frameworks/libMoltenVK.dylib",
+  "Natives/resources/Frameworks/libOSMesa.8.dylib",
+  "Natives/resources/Frameworks/libfreetype.dylib",
+  "Natives/resources/Frameworks/libgl4es_114.dylib",
+  "Natives/resources/Frameworks/libglapi.0.dylib",
+  "Natives/resources/Frameworks/liblwjgl.dylib",
+  "Natives/resources/Frameworks/liblwjgl_nanovg.dylib",
+  "Natives/resources/Frameworks/liblwjgl_opengl.dylib",
+  "Natives/resources/Frameworks/liblwjgl_stb.dylib",
+  "Natives/resources/Frameworks/liblwjgl_tinyfd.dylib",
+  "Natives/resources/Frameworks/liblwjgl_vma.dylib",
+  "Natives/resources/Frameworks/libopenal.dylib",
+  "Natives/resources/Frameworks/libshaderc.dylib",
+  "Natives/resources/Frameworks/libvirgl_test_server.dylib"
+]

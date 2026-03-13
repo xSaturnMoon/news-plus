@@ -1,0 +1,6 @@
+{
+  "name": "amethyst",
+  "ios": {
+    "modules": ["AmethystModule"]
+  }
+}
