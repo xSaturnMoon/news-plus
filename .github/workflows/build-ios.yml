@@ -21,11 +21,6 @@ jobs:
           path: Amethyst-iOS
           submodules: recursive # Necessario per scaricare i natives arm64 inclusi come sottomoduli
 
-      - name: 🍏 Install Amethyst Dependencies (CocoaPods)
-        run: |
-          cd Amethyst-iOS
-          pod install
-
       - name: 🏗️ Compile Amethyst Framework
         run: |
           cd Amethyst-iOS
