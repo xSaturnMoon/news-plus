@@ -27,13 +27,23 @@ jobs:
           java-version: '8'
           distribution: 'zulu'
 
-      - name: 🛠️ Setup GNU Make (gmake)
+      - name: 🏗️ Setup Native Dependencies
         run: |
-          brew install make
-          # Create symlink for hardcoded Xcode project paths (Amethyst-iOS expects it at /usr/local/bin/gmake)
+          brew install make cmake ldid wget llvm coreutils
+          
+          # Symlink gmake & nproc (Required by Amethyst-iOS Makefile)
           sudo mkdir -p /usr/local/bin
-          sudo ln -sf /opt/homebrew/bin/gmake /usr/local/bin/gmake
-          gmake --version
+          if [ -d /opt/homebrew/bin ]; then
+            sudo ln -sf /opt/homebrew/bin/gmake /usr/local/bin/gmake
+            sudo ln -sf /opt/homebrew/bin/gnproc /usr/local/bin/nproc
+          else
+            # Intel runners
+            sudo ln -sf /usr/local/bin/gmake /usr/local/bin/gmake
+            sudo ln -sf /usr/local/bin/gnproc /usr/local/bin/nproc
+          fi
+          
+          # Add LLVM/lld to path
+          echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
 
       - name: 🏗️ Compile Amethyst Framework
         run: |
