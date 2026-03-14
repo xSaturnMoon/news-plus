@@ -21,6 +21,14 @@ jobs:
           path: Amethyst-iOS
           submodules: recursive # Necessario per scaricare i natives arm64 inclusi come sottomoduli
 
+      - name: 🛠️ Setup GNU Make (gmake)
+        run: |
+          brew install make
+          # Create symlink for hardcoded Xcode project paths (Amethyst-iOS expects it at /usr/local/bin/gmake)
+          sudo mkdir -p /usr/local/bin
+          sudo ln -sf /opt/homebrew/bin/gmake /usr/local/bin/gmake
+          gmake --version
+
       - name: 🏗️ Compile Amethyst Framework
         run: |
           cd Amethyst-iOS
