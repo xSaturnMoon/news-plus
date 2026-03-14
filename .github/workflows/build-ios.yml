@@ -55,6 +55,9 @@ jobs:
 
           echo "🚀 Starting build with: $FLAG \"$NAME\""
           
+          # Override BOOTJDK to point to the Java 8 installed by setup-java
+          export BOOTJDK="$JAVA_HOME/bin"
+          
           xcodebuild clean build -project "$PROJECT_NAME" "$FLAG" "$NAME" \
             -configuration Release \
             -sdk iphoneos \
