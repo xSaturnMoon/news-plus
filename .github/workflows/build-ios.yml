@@ -21,11 +21,12 @@ jobs:
           path: Amethyst-iOS
           submodules: recursive # Necessario per scaricare i natives arm64 inclusi come sottomoduli
 
-      - name: ☕ Setup Java 8 (Required by Amethyst Natives)
+      - name: ☕ Setup Java 8
         uses: actions/setup-java@v4
         with:
           java-version: '8'
-          distribution: 'zulu'
+          distribution: 'temurin'
+          architecture: x64
 
       - name: 🏗️ Setup Native Dependencies
         run: |
@@ -64,6 +65,10 @@ jobs:
           fi
 
           echo "🚀 Starting build with: $FLAG \"$NAME\""
+          
+          # Force the use of Java 8 installed by setup-java
+          export PATH="$JAVA_HOME/bin:$PATH"
+          java -version
           
           # Patch ALL brittle Makefile dependency checks that fail on ARM64 MacOS
           # This replaces all $(error You need to install ...) with $(info ...)
