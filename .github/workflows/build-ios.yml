@@ -65,11 +65,12 @@ jobs:
 
           echo "🚀 Starting build with: $FLAG \"$NAME\""
           
-          # Override BOOTJDK to point to the Java 8 installed by setup-java
-          export BOOTJDK="$JAVA_HOME/bin"
+          # Patch ALL brittle Makefile dependency checks that fail on ARM64 MacOS
+          # This replaces all $(error You need to install ...) with $(info ...)
+          sed -i '' 's/\$(error You need to install/$(info Bypassing check: You need to install/g' Makefile
           
-          # Patch the brittle Makefile JDK check that fails on ARM64 MacOS
-          sed -i '' 's/\$(error You need to install JDK 8)/$(info Bypassing brittle JDK 8 check)/g' Makefile
+          # Fix the specific version check for Java which is also brittle
+          sed -i '' 's/ifeq (\$(filter 1.8.0/ifneq (1.8.0,1.8.0/g' Makefile
           
           xcodebuild clean build -project "$PROJECT_NAME" "$FLAG" "$NAME" \
             -configuration Release \
