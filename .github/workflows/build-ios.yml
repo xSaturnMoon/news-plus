@@ -21,6 +21,12 @@ jobs:
           path: Amethyst-iOS
           submodules: recursive # Necessario per scaricare i natives arm64 inclusi come sottomoduli
 
+      - name: ☕ Setup Java 8 (Required by Amethyst Natives)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+
       - name: 🛠️ Setup GNU Make (gmake)
         run: |
           brew install make
