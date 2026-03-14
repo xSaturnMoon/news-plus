@@ -80,6 +80,9 @@ jobs:
           # Fix the specific version check for Java which is also brittle
           sed -i '' 's/ifeq (\$(filter 1.8.0/ifneq (1.8.0,1.8.0/g' Makefile
           
+          # Patch JavaLauncher.m to include missing mach header (Required for Apple Silicon/Mach ports)
+          printf '#include <mach/mach.h>\n' | cat - Natives/JavaLauncher.m > /tmp/jl_patched.m && mv /tmp/jl_patched.m Natives/JavaLauncher.m
+          
           xcodebuild clean build -project "$PROJECT_NAME" "$FLAG" "$NAME" \
             -configuration Release \
             -sdk iphoneos \
