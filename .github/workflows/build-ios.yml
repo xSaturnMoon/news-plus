@@ -83,6 +83,10 @@ jobs:
           # Patch JavaLauncher.m to include missing mach header (Required for Apple Silicon/Mach ports)
           printf '#include <mach/mach.h>\n' | cat - Natives/JavaLauncher.m > /tmp/jl_patched.m && mv /tmp/jl_patched.m Natives/JavaLauncher.m
           
+          # Patch private Apple API symbols that cause linker errors on public SDKs
+          sed -i '' 's/__UISolariumEnabled/0/g' Natives/LauncherNavigationController.m
+          sed -i '' 's/__UISolariumEnabled/0/g' Natives/PickTextField.m
+          
           xcodebuild clean build -project "$PROJECT_NAME" "$FLAG" "$NAME" \
             -configuration Release \
             -sdk iphoneos \
