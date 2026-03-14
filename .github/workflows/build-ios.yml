@@ -24,21 +24,23 @@ jobs:
       - name: 🏗️ Compile Amethyst Framework
         run: |
           cd Amethyst-iOS
+          PROJECT_NAME=$(ls | grep "\.xcodeproj" | head -n 1)
           
-          # Amethyst usa workspace per i pods o project normale? Cerca.
-          if ls | grep -q "\.xcworkspace"; then
-            WORKSPACE_NAME=$(ls | grep "\.xcworkspace" | head -n 1)
-            SCHEME_NAME=$(basename "$WORKSPACE_NAME" .xcworkspace)
-            BUILD_CMD="xcodebuild clean build -workspace $WORKSPACE_NAME"
+          # Find the first available scheme
+          SCHEME_NAME=$(xcodebuild -list -project "$PROJECT_NAME" | sed -n '/Schemes:/,$p' | sed '1d' | sed 's/^[[:space:]]*//' | head -n 1)
+          
+          if [ -z "$SCHEME_NAME" ]; then
+            echo "⚠️ No schemes found, falling back to Target detection..."
+            TARGET_NAME=$(xcodebuild -list -project "$PROJECT_NAME" | sed -n '/Targets:/,$p' | sed '1d' | sed 's/^[[:space:]]*//' | head -n 1)
+            BUILD_ARGS="-project $PROJECT_NAME -target $TARGET_NAME"
           else
-            PROJECT_NAME=$(ls | grep "\.xcodeproj" | head -n 1)
-            SCHEME_NAME=$(basename "$PROJECT_NAME" .xcodeproj)
-            BUILD_CMD="xcodebuild clean build -project $PROJECT_NAME"
+            echo "✅ Detected Scheme: $SCHEME_NAME"
+            BUILD_ARGS="-project $PROJECT_NAME -scheme $SCHEME_NAME"
           fi
+
+          echo "🚀 Starting build with: $BUILD_ARGS"
           
-          # Iniettiamo le flag per sovrascrivere il Build Settings Xcode forzando la libreria condivisa
-          $BUILD_CMD \
-            -scheme "$SCHEME_NAME" \
+          xcodebuild clean build $BUILD_ARGS \
             -configuration Release \
             -sdk iphoneos \
             SYMROOT=$PWD/build \
