@@ -31,16 +31,17 @@ jobs:
           
           if [ -z "$SCHEME_NAME" ]; then
             echo "⚠️ No schemes found, falling back to Target detection..."
-            TARGET_NAME=$(xcodebuild -list -project "$PROJECT_NAME" | sed -n '/Targets:/,$p' | sed '1d' | sed 's/^[[:space:]]*//' | head -n 1)
-            BUILD_ARGS="-project $PROJECT_NAME -target $TARGET_NAME"
+            NAME=$(xcodebuild -list -project "$PROJECT_NAME" | sed -n '/Targets:/,$p' | sed '1d' | sed 's/^[[:space:]]*//' | head -n 1)
+            FLAG="-target"
           else
             echo "✅ Detected Scheme: $SCHEME_NAME"
-            BUILD_ARGS="-project $PROJECT_NAME -scheme $SCHEME_NAME"
+            NAME="$SCHEME_NAME"
+            FLAG="-scheme"
           fi
 
-          echo "🚀 Starting build with: $BUILD_ARGS"
+          echo "🚀 Starting build with: $FLAG \"$NAME\""
           
-          xcodebuild clean build $BUILD_ARGS \
+          xcodebuild clean build -project "$PROJECT_NAME" "$FLAG" "$NAME" \
             -configuration Release \
             -sdk iphoneos \
             SYMROOT=$PWD/build \
