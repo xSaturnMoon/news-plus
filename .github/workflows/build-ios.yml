@@ -22,6 +22,7 @@ jobs:
           submodules: recursive # Necessario per scaricare i natives arm64 inclusi come sottomoduli
 
       - name: ☕ Setup Java 8
+        id: setup-java
         uses: actions/setup-java@v4
         with:
           java-version: '8'
@@ -36,11 +37,11 @@ jobs:
           sudo mkdir -p /usr/local/bin
           if [ -d /opt/homebrew/bin ]; then
             sudo ln -sf /opt/homebrew/bin/gmake /usr/local/bin/gmake
-            sudo ln -sf /opt/homebrew/bin/gnproc /usr/local/bin/nproc
+            sudo ln -sf $(which gnproc 2>/dev/null || which nproc 2>/dev/null || echo /usr/bin/true) /usr/local/bin/nproc 2>/dev/null || true
           else
             # Intel runners
             sudo ln -sf /usr/local/bin/gmake /usr/local/bin/gmake
-            sudo ln -sf /usr/local/bin/gnproc /usr/local/bin/nproc
+            sudo ln -sf $(which gnproc 2>/dev/null || which nproc 2>/dev/null || echo /usr/bin/true) /usr/local/bin/nproc 2>/dev/null || true
           fi
           
           # Add LLVM/lld to path
@@ -67,7 +68,9 @@ jobs:
           echo "🚀 Starting build with: $FLAG \"$NAME\""
           
           # Force the use of Java 8 installed by setup-java
-          export PATH="$JAVA_HOME/bin:$PATH"
+          export JAVA_HOME=${{ steps.setup-java.outputs.path }}
+          export BOOTJDK=$JAVA_HOME/bin
+          export PATH="$BOOTJDK:$PATH"
           java -version
           
           # Patch ALL brittle Makefile dependency checks that fail on ARM64 MacOS
