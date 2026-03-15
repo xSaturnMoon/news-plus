@@ -12,7 +12,8 @@
       "backgroundColor": "#000000"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "deploymentTarget": "16.0"
     },
     "android": {
       "adaptiveIcon": {
