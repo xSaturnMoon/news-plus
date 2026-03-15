@@ -110,19 +110,57 @@ jobs:
             
       - name: 🚚 Inject Amethyst.framework into Expo Module
         run: |
-          # Creiamo la cartella target nel nostro Local Expo Module scritto precedentemente
           mkdir -p modules/amethyst/ios/Frameworks
           
-          # Cerchiamo il framework compilato appena partorito da xcodebuild
-          FRAMEWORK_PATH=$(find Amethyst-iOS/build -name "Amethyst.framework" -type d | head -n 1)
+          # Debug: list what was actually built
+          echo "=== Build artifacts in Amethyst-iOS/build ==="
+          find Amethyst-iOS/build -type f \( -name "*.dylib" -o -name "*.framework" \) 2>/dev/null | head -30 || echo "No artifacts found in Amethyst-iOS/build"
+          echo "=== Build artifacts in Amethyst-iOS/Natives/build ==="
+          find Amethyst-iOS/Natives/build -type f \( -name "*.dylib" -o -name "AngelAuraAmethyst" \) 2>/dev/null | head -30 || echo "No artifacts found in Amethyst-iOS/Natives/build"
           
-          if [ -z "$FRAMEWORK_PATH" ]; then
-            echo "ERRORE CRITICO: Amethyst.framework non trovato post-compilazione!"
-            exit 1
+          # Try 1: Look for a pre-built .framework
+          FRAMEWORK_PATH=$(find Amethyst-iOS/build -name "Amethyst.framework" -type d 2>/dev/null | head -n 1)
+          
+          if [ -n "$FRAMEWORK_PATH" ]; then
+            echo "✅ Found Amethyst.framework: $FRAMEWORK_PATH"
+            cp -R "$FRAMEWORK_PATH" modules/amethyst/ios/Frameworks/
+          else
+            echo "⚠️ Amethyst.framework not found. Looking for .dylib to wrap..."
+            
+            # Try 2: Wrap the .dylib into a minimal .framework bundle
+            # With MACH_O_TYPE=mh_dylib, xcodebuild outputs a dylib, not a .framework
+            DYLIB_PATH=$(find Amethyst-iOS/build -name "*.dylib" 2>/dev/null | grep -v "libswift\|libmobile\|libspirv\|libAF\|libawt\|libtiny\|libAmethystAccount" | head -n 1)
+            
+            if [ -z "$DYLIB_PATH" ]; then
+              # Also check the cmake Natives/build directory for the main app binary
+              DYLIB_PATH=$(find Amethyst-iOS/Natives/build -name "*.dylib" 2>/dev/null | grep -v "lib" | head -n 1)
+            fi
+            
+            if [ -z "$DYLIB_PATH" ]; then
+              echo "⚠️ No main dylib found. Collecting ALL dylibs into a fat framework..."
+              # Collect ALL dylibs from Natives/build as the Amethyst library
+              DYLIB_PATH=$(find Amethyst-iOS/Natives/build -name "libAngelAuraAmethyst.dylib" -o -name "AngelAuraAmethyst" 2>/dev/null | head -n 1)
+            fi
+            
+            if [ -n "$DYLIB_PATH" ]; then
+              echo "✅ Found dylib/binary: $DYLIB_PATH"
+              # Assemble a minimal .framework bundle
+              FWDIR=modules/amethyst/ios/Frameworks/Amethyst.framework
+              mkdir -p "$FWDIR"
+              cp "$DYLIB_PATH" "$FWDIR/Amethyst"
+              # Minimal Info.plist required by CocoaPods/Xcode (written via python3 to avoid YAML heredoc issues)
+              python3 -c "open('$FWDIR/Info.plist','w').write('<plist version=\"1.0\"><dict><key>CFBundleIdentifier</key><string>com.angelaura.amethyst</string><key>CFBundleName</key><string>Amethyst</string><key>CFBundlePackageType</key><string>FMWK</string><key>CFBundleShortVersionString</key><string>1.0</string><key>CFBundleVersion</key><string>1</string><key>MinimumOSVersion</key><string>14.0</string></dict></plist>')"
+              echo "Assembled Amethyst.framework from: $DYLIB_PATH"
+            else
+              echo "❌ CRITICAL: No Amethyst binary found! Listing ALL build outputs:"
+              find Amethyst-iOS -type f \( -name "*.dylib" -o -name "*.a" -o -name "AngelAuraAmethyst" \) 2>/dev/null
+              exit 1
+            fi
           fi
           
-          cp -R "$FRAMEWORK_PATH" modules/amethyst/ios/Frameworks/
-          echo "Framework 注入 completed: $FRAMEWORK_PATH"
+          echo "✅ Framework injection completed!"
+          ls -la modules/amethyst/ios/Frameworks/
+
 
       - name: ⚙️ Setup Node.js
         uses: actions/setup-node@v4
