@@ -94,9 +94,16 @@ jobs:
           grep -q '__UISolariumEnabled' Natives/LauncherNavigationController.m && echo "WARNING: Symbol still in LauncherNavigationController.m!" || echo "OK: LauncherNavigationController.m patched"
           grep -q '__UISolariumEnabled' Natives/PickTextField.m && echo "WARNING: Symbol still in PickTextField.m!" || echo "OK: PickTextField.m patched"
           
-          # Safety net: patch CMakeLists.txt to add -undefined dynamic_lookup linker flag
-          # This allows any remaining undefined private Apple symbols to be resolved at runtime
-          python3 -c "import re; f=open('Natives/CMakeLists.txt','r'); c=f.read(); f.close(); flag='target_link_options(AngelAuraAmethyst PRIVATE -Wl,-undefined,dynamic_lookup)\n'; c=re.sub(r'(target_link_libraries\s*\(\s*AngelAuraAmethyst)', flag+r'\1', c, count=1) if 'undefined,dynamic_lookup' not in c and 'AngelAuraAmethyst' in c else c; f=open('Natives/CMakeLists.txt','w'); f.write(c); f.close(); print('CMakeLists.txt patched')" || echo "CMakeLists.txt python patch skipped"
+          # CRITICAL FIX: patch CMakeLists.txt to build a SHARED LIBRARY (MH_DYLIB) instead of
+          # an executable (MH_EXECUTE). The original cmake uses add_executable which produces
+          # an app binary that cannot be linked as a framework by Xcode.
+          # After this patch, cmake outputs libAngelAuraAmethyst.dylib instead of AngelAuraAmethyst.app
+          sed -i '' 's/add_executable(AngelAuraAmethyst/add_library(AngelAuraAmethyst SHARED/g' Natives/CMakeLists.txt || \
+            sed -i 's/add_executable(AngelAuraAmethyst/add_library(AngelAuraAmethyst SHARED/g' Natives/CMakeLists.txt
+          grep -q 'add_library(AngelAuraAmethyst SHARED' Natives/CMakeLists.txt && echo 'OK: CMakeLists patched to SHARED library' || echo 'WARNING: cmake patch may have failed'
+          
+          # Add -undefined dynamic_lookup linker flag for remaining undefined Apple private symbols
+          python3 -c "import re; f=open('Natives/CMakeLists.txt','r'); c=f.read(); f.close(); flag='target_link_options(AngelAuraAmethyst PRIVATE -Wl,-undefined,dynamic_lookup)\n'; c=re.sub(r'(target_link_libraries\s*\(\s*AngelAuraAmethyst)', flag+r'\1', c, count=1) if 'undefined,dynamic_lookup' not in c and 'AngelAuraAmethyst' in c else c; f=open('Natives/CMakeLists.txt','w'); f.write(c); f.close(); print('CMakeLists.txt patched with dynamic_lookup')" || echo 'CMakeLists.txt python patch skipped'
           
           xcodebuild clean build -project "$PROJECT_NAME" "$FLAG" "$NAME" \
             -configuration Release \
@@ -111,55 +118,51 @@ jobs:
       - name: 🚚 Inject Amethyst.framework into Expo Module
         run: |
           mkdir -p modules/amethyst/ios/Frameworks
+          FWDIR=modules/amethyst/ios/Frameworks/Amethyst.framework
+          mkdir -p "$FWDIR"
           
-          # Debug: list what was actually built
-          echo "=== Build artifacts in Amethyst-iOS/build ==="
-          find Amethyst-iOS/build -type f \( -name "*.dylib" -o -name "*.framework" \) 2>/dev/null | head -30 || echo "No artifacts found in Amethyst-iOS/build"
-          echo "=== Build artifacts in Amethyst-iOS/Natives/build ==="
-          find Amethyst-iOS/Natives/build -type f \( -name "*.dylib" -o -name "AngelAuraAmethyst" \) 2>/dev/null | head -30 || echo "No artifacts found in Amethyst-iOS/Natives/build"
+          echo '=== Searching for Amethyst dylib (cmake SHARED library output) ==='
+          # cmake with add_library(SHARED) outputs libAngelAuraAmethyst.dylib
+          # This is the PRIMARY expected location after our CMakeLists.txt patch
+          DYLIB_PATH=$(find Amethyst-iOS/Natives/build -name 'libAngelAuraAmethyst.dylib' 2>/dev/null | head -n 1)
           
-          # Try 1: Look for a pre-built .framework
-          FRAMEWORK_PATH=$(find Amethyst-iOS/build -name "Amethyst.framework" -type d 2>/dev/null | head -n 1)
+          if [ -z "$DYLIB_PATH" ]; then
+            echo 'Primary dylib not found, scanning all dylibs in build output...'
+            find Amethyst-iOS -name '*.dylib' 2>/dev/null | head -20
+            # Fallback: any dylib that is NOT a system library (no lib prefix except libAngelAura*)
+            DYLIB_PATH=$(find Amethyst-iOS/build -name '*.dylib' 2>/dev/null \
+              | grep -v 'libswift\|libmobile\|libspirv\|libAF\|libawt\|libtiny\|libz\|libxml\|libc\|libiconv' \
+              | head -n 1)
+          fi
           
-          if [ -n "$FRAMEWORK_PATH" ]; then
-            echo "✅ Found Amethyst.framework: $FRAMEWORK_PATH"
-            cp -R "$FRAMEWORK_PATH" modules/amethyst/ios/Frameworks/
-          else
-            echo "⚠️ Amethyst.framework not found. Looking for .dylib to wrap..."
-            
-            # Try 2: Wrap the .dylib into a minimal .framework bundle
-            # With MACH_O_TYPE=mh_dylib, xcodebuild outputs a dylib, not a .framework
-            DYLIB_PATH=$(find Amethyst-iOS/build -name "*.dylib" 2>/dev/null | grep -v "libswift\|libmobile\|libspirv\|libAF\|libawt\|libtiny\|libAmethystAccount" | head -n 1)
-            
-            if [ -z "$DYLIB_PATH" ]; then
-              # Also check the cmake Natives/build directory for the main app binary
-              DYLIB_PATH=$(find Amethyst-iOS/Natives/build -name "*.dylib" 2>/dev/null | grep -v "lib" | head -n 1)
-            fi
-            
-            if [ -z "$DYLIB_PATH" ]; then
-              echo "⚠️ No main dylib found. Collecting ALL dylibs into a fat framework..."
-              # Collect ALL dylibs from Natives/build as the Amethyst library
-              DYLIB_PATH=$(find Amethyst-iOS/Natives/build -name "libAngelAuraAmethyst.dylib" -o -name "AngelAuraAmethyst" 2>/dev/null | head -n 1)
-            fi
-            
-            if [ -n "$DYLIB_PATH" ]; then
-              echo "✅ Found dylib/binary: $DYLIB_PATH"
-              # Assemble a minimal .framework bundle
-              FWDIR=modules/amethyst/ios/Frameworks/Amethyst.framework
-              mkdir -p "$FWDIR"
+          # Final validation: ensure the binary is MH_DYLIB, NOT MH_EXECUTE
+          if [ -n "$DYLIB_PATH" ]; then
+            FILE_TYPE=$(file "$DYLIB_PATH" 2>/dev/null)
+            echo "Found: $DYLIB_PATH"
+            echo "Type:  $FILE_TYPE"
+            if echo "$FILE_TYPE" | grep -q 'dynamically linked shared library\|shared library'; then
+              echo 'Binary type is MH_DYLIB - OK'
               cp "$DYLIB_PATH" "$FWDIR/Amethyst"
-              # Minimal Info.plist required by CocoaPods/Xcode (written via python3 to avoid YAML heredoc issues)
-              python3 -c "open('$FWDIR/Info.plist','w').write('<plist version=\"1.0\"><dict><key>CFBundleIdentifier</key><string>com.angelaura.amethyst</string><key>CFBundleName</key><string>Amethyst</string><key>CFBundlePackageType</key><string>FMWK</string><key>CFBundleShortVersionString</key><string>1.0</string><key>CFBundleVersion</key><string>1</string><key>MinimumOSVersion</key><string>14.0</string></dict></plist>')"
-              echo "Assembled Amethyst.framework from: $DYLIB_PATH"
-            else
-              echo "❌ CRITICAL: No Amethyst binary found! Listing ALL build outputs:"
-              find Amethyst-iOS -type f \( -name "*.dylib" -o -name "*.a" -o -name "AngelAuraAmethyst" \) 2>/dev/null
-              exit 1
+            elif echo "$FILE_TYPE" | grep -q 'executable'; then
+              echo 'REJECTED: binary is MH_EXECUTE (executable), cannot be linked as framework'
+              echo 'Trying other candidates...'
+              DYLIB_PATH=''
             fi
           fi
           
-          echo "✅ Framework injection completed!"
-          ls -la modules/amethyst/ios/Frameworks/
+          if [ -z "$DYLIB_PATH" ] || [ ! -f "$FWDIR/Amethyst" ]; then
+            echo 'ERROR: No valid MH_DYLIB found. Full build artifact listing:'
+            find Amethyst-iOS -type f -name '*.dylib' 2>/dev/null
+            find Amethyst-iOS -type f -name '*.a' 2>/dev/null
+            exit 1
+          fi
+          
+          # Write Info.plist for the framework bundle
+          python3 -c "open('$FWDIR/Info.plist','w').write('<plist version=\"1.0\"><dict><key>CFBundleIdentifier</key><string>com.angelaura.amethyst</string><key>CFBundleName</key><string>Amethyst</string><key>CFBundlePackageType</key><string>FMWK</string><key>CFBundleShortVersionString</key><string>1.0</string><key>CFBundleVersion</key><string>1</string><key>MinimumOSVersion</key><string>16.0</string></dict></plist>')"
+          
+          echo 'Framework injection completed!'
+          ls -la "$FWDIR/"
+          file "$FWDIR/Amethyst"
 
 
       - name: ⚙️ Setup Node.js
