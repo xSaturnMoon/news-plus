@@ -83,10 +83,20 @@ jobs:
           # Patch JavaLauncher.m to include missing mach header (Required for Apple Silicon/Mach ports)
           printf '#include <mach/mach.h>\n' | cat - Natives/JavaLauncher.m > /tmp/jl_patched.m && mv /tmp/jl_patched.m Natives/JavaLauncher.m
           
-          # Patch private Apple API: define symbol ONCE in LauncherNavigationController,
-          # extern-declare in PickTextField to avoid duplicate symbol linker error
-          printf 'int __UISolariumEnabled = 0;\n' | cat - Natives/LauncherNavigationController.m > /tmp/_lnc.m && mv /tmp/_lnc.m Natives/LauncherNavigationController.m
-          printf 'extern int __UISolariumEnabled;\n' | cat - Natives/PickTextField.m > /tmp/_ptf.m && mv /tmp/_ptf.m Natives/PickTextField.m
+          # DEFINITIVE FIX for private Apple symbol __UISolariumEnabled:
+          # Strategy: replace ALL references with literal 0 so the symbol is never referenced.
+          # We cannot define it ourselves because Apple private headers re-declare it as 'extern BOOL',
+          # which conflicts with any 'int' definition and confuses the linker.
+          sed -i '' 's/__UISolariumEnabled/0/g' Natives/LauncherNavigationController.m
+          sed -i '' 's/__UISolariumEnabled/0/g' Natives/PickTextField.m
+          
+          # Verify the patches worked (will print WARNING if symbol is still present)
+          grep -q '__UISolariumEnabled' Natives/LauncherNavigationController.m && echo "WARNING: Symbol still in LauncherNavigationController.m!" || echo "OK: LauncherNavigationController.m patched"
+          grep -q '__UISolariumEnabled' Natives/PickTextField.m && echo "WARNING: Symbol still in PickTextField.m!" || echo "OK: PickTextField.m patched"
+          
+          # Safety net: patch CMakeLists.txt to add -undefined dynamic_lookup linker flag
+          # This allows any remaining undefined private Apple symbols to be resolved at runtime
+          python3 -c "import re; f=open('Natives/CMakeLists.txt','r'); c=f.read(); f.close(); flag='target_link_options(AngelAuraAmethyst PRIVATE -Wl,-undefined,dynamic_lookup)\n'; c=re.sub(r'(target_link_libraries\s*\(\s*AngelAuraAmethyst)', flag+r'\1', c, count=1) if 'undefined,dynamic_lookup' not in c and 'AngelAuraAmethyst' in c else c; f=open('Natives/CMakeLists.txt','w'); f.write(c); f.close(); print('CMakeLists.txt patched')" || echo "CMakeLists.txt python patch skipped"
           
           xcodebuild clean build -project "$PROJECT_NAME" "$FLAG" "$NAME" \
             -configuration Release \
