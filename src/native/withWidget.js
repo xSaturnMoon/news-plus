@@ -65,10 +65,10 @@ function withWidget(config) {
                 fs.copyFileSync(modSwiftSrc, path.join(appGroupDestDir, 'AppGroupModule.swift'));
                 
                 // Add to xcode project
-                const mainGroup = xcodeProject.pbxGroupByName(appProjectName);
-                if (mainGroup) {
-                    xcodeProject.addSourceFile(`${appProjectName}/AppGroupModule.m`, {}, mainGroup);
-                    xcodeProject.addSourceFile(`${appProjectName}/AppGroupModule.swift`, {}, mainGroup);
+                const groupKey = xcodeProject.findPBXGroupKey({ name: appProjectName });
+                if (groupKey) {
+                    xcodeProject.addSourceFile(`${appProjectName}/AppGroupModule.m`, null, groupKey);
+                    xcodeProject.addSourceFile(`${appProjectName}/AppGroupModule.swift`, null, groupKey);
                 }
             }
         } catch (e) {
@@ -152,7 +152,14 @@ function withWidget(config) {
         };
 
         // Add file references
-        proj.addFile(`${WIDGET_TARGET_NAME}/ReminderWidget.swift`, null, { uuid: swiftFileUUID });
+        proj.pbxProject()['objects'][swiftFileUUID] = {
+            isa: 'PBXFileReference',
+            includeInIndex: 1,
+            lastKnownFileType: 'sourcecode.swift',
+            name: 'ReminderWidget.swift',
+            path: 'ReminderWidget.swift',
+            sourceTree: '"<group>"',
+        };
 
         // Add compile sources build phase
         proj.pbxProject()['objects'][compileSourcesUUID] = {
