@@ -38,8 +38,7 @@
           "color": "#FF231F7C"
         }
       ],
-      "./src/native/withLiveActivity.js",
-      "./src/native/withWidget.js"
+      "./src/native/withLiveActivity.js"
     ],
     "permissions": [
       "NOTIFICATIONS"

@@ -11,7 +11,6 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMont
 import { it } from 'date-fns/locale';
 import * as db from '../services/database';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { syncNextReminderToWidget } from '../services/widgetSync';
 
 export const CalendarScreen = () => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -45,7 +44,6 @@ export const CalendarScreen = () => {
     const loadEvents = async () => {
         const allEvents = await db.getAllEvents();
         setEvents(allEvents);
-        syncNextReminderToWidget(allEvents);
     };
 
     const daysInMonth = eachDayOfInterval({
