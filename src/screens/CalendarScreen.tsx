@@ -5,6 +5,7 @@ import { Header, Body, SubHeader, Caption } from '../components/Typography';
 import { CardSoft } from '../components/CardSoft';
 import { ButtonSoft } from '../components/ButtonSoft';
 import { ModalForm } from '../components/ModalForm';
+import { TimeWheelPicker } from '../components/TimeWheelPicker';
 import { Plus, Bell, Trash2, Watch, Calendar, Type, Clock, List } from 'lucide-react-native';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -231,7 +232,7 @@ export const CalendarScreen = () => {
                     <ButtonSoft title=">" onPress={() => setCurrentMonth(addMonths(currentMonth, 1))} style={styles.navBtn} />
                 </View>
                 <TouchableOpacity onPress={() => setRemindersModalVisible(true)} style={styles.remindersBtn}>
-                    <Bell size={24} color={Theme.colors.primary} />
+                    <Bell size={24} color={Theme.colors.text} />
                 </TouchableOpacity>
             </View>
 
@@ -247,54 +248,27 @@ export const CalendarScreen = () => {
                 onClose={() => setModalVisible(false)}
                 title="Nuovo Evento"
             >
-                <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-                    <View style={styles.inputCard}>
-                        <View style={styles.inputIconContainer}>
-                            <Type size={20} color={Theme.colors.text} />
-                        </View>
-                        <View style={styles.inputContent}>
-                            <Caption style={styles.inputLabel}>Titolo</Caption>
-                            <TextInput
-                                style={styles.textInput}
-                                value={title}
-                                onChangeText={setTitle}
-                                placeholder="Cosa devi fare?"
-                                placeholderTextColor={Theme.colors.textLight + '60'}
-                            />
-                        </View>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: Theme.spacing.sm }}>
+                    {/* Title Input */}
+                    <View style={styles.modernInputContainer}>
+                        <TextInput
+                            style={styles.modernTextInput}
+                            value={title}
+                            onChangeText={setTitle}
+                            placeholder="Titolo dell'evento..."
+                            placeholderTextColor={Theme.colors.textLight + '80'}
+                        />
                     </View>
 
-                    <View style={styles.row}>
-                        <View style={[styles.inputCard, { flex: 1, marginRight: Theme.spacing.sm }]}>
-                            <View style={styles.inputIconContainer}>
-                                <Clock size={20} color={Theme.colors.text} />
-                            </View>
-                            <View style={styles.inputContent}>
-                                <Caption style={styles.inputLabel}>Inizio</Caption>
-                                <TextInput
-                                    style={styles.textInput}
-                                    value={startTime}
-                                    onChangeText={setStartTime}
-                                    placeholder="10:30"
-                                    placeholderTextColor={Theme.colors.textLight + '60'}
-                                />
-                            </View>
+                    {/* Time Selectors Row */}
+                    <View style={styles.timeSectionRow}>
+                        <View style={styles.timePickerBox}>
+                            <Caption style={styles.timeLabel}><Clock size={14} color={Theme.colors.textLight} /> INIZIO</Caption>
+                            <TimeWheelPicker value={startTime || '09:00'} onValueChange={setStartTime} />
                         </View>
-
-                        <View style={[styles.inputCard, { flex: 1 }]}>
-                            <View style={styles.inputIconContainer}>
-                                <Watch size={20} color={Theme.colors.text} />
-                            </View>
-                            <View style={styles.inputContent}>
-                                <Caption style={styles.inputLabel}>Fine</Caption>
-                                <TextInput
-                                    style={styles.textInput}
-                                    value={endTime}
-                                    onChangeText={setEndTime}
-                                    placeholder="11:30"
-                                    placeholderTextColor={Theme.colors.textLight + '60'}
-                                />
-                            </View>
+                        <View style={styles.timePickerBox}>
+                            <Caption style={styles.timeLabel}><Watch size={14} color={Theme.colors.textLight} /> FINE</Caption>
+                            <TimeWheelPicker value={endTime || '10:00'} onValueChange={setEndTime} />
                         </View>
                     </View>
 
@@ -373,7 +347,9 @@ export const CalendarScreen = () => {
                                                                 setSelectedEvent(updated);
                                                                 loadEvents();
                                                             }}>
-                                                                <Trash2 size={16} color={Theme.colors.error} />
+                                                                <View style={styles.reminderDeleteBtn}>
+                                                                    <Trash2 size={14} color={Theme.colors.errorText} />
+                                                                </View>
                                                             </TouchableOpacity>
                                                         </View>
                                                     ))}
@@ -477,7 +453,7 @@ export const CalendarScreen = () => {
                                     <View key={idx} style={styles.reminderListItem}>
                                         <View style={{ flex: 1 }}>
                                             <Body style={{ fontWeight: '600' }}>{r.eventTitle}</Body>
-                                            <Caption style={{ color: Theme.colors.primary }}>{r.notifTime}</Caption>
+                                            <Caption style={{ color: Theme.colors.textLight }}>{r.notifTime}</Caption>
                                         </View>
                                         <TouchableOpacity onPress={async () => {
                                             const notifications = require('../services/notifications');
@@ -501,7 +477,7 @@ export const CalendarScreen = () => {
                                             }
                                         }}>
                                             <View style={styles.reminderDeleteBtn}>
-                                                <Trash2 size={16} color={Theme.colors.error} />
+                                                <Trash2 size={16} color={Theme.colors.errorText} />
                                             </View>
                                         </TouchableOpacity>
                                     </View>
@@ -533,7 +509,7 @@ const styles = StyleSheet.create({
     },
     remindersBtn: {
         padding: 8,
-        backgroundColor: Theme.colors.primary + '15',
+        backgroundColor: Theme.colors.secondary,
         borderRadius: Theme.borderRadius.md,
     },
     remindersDateHeader: {
@@ -558,7 +534,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: Theme.colors.error + '15',
+        backgroundColor: Theme.colors.errorText + '25',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -610,6 +586,46 @@ const styles = StyleSheet.create({
     addButton: {
         alignSelf: 'flex-end',
         padding: 4,
+    },
+    modernInputContainer: {
+        backgroundColor: Theme.colors.white,
+        borderRadius: Theme.borderRadius.md,
+        paddingHorizontal: Theme.spacing.md,
+        paddingVertical: 12,
+        marginBottom: Theme.spacing.lg,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        ...Theme.shadows.light,
+    },
+    modernTextInput: {
+        fontSize: 18,
+        fontWeight: '500',
+        color: Theme.colors.text,
+        padding: 0,
+        textAlign: 'center',
+    },
+    timeSectionRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        marginBottom: Theme.spacing.xl,
+        backgroundColor: Theme.colors.white,
+        borderRadius: Theme.borderRadius.lg,
+        paddingVertical: Theme.spacing.md,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        ...Theme.shadows.light,
+    },
+    timePickerBox: {
+        alignItems: 'center',
+    },
+    timeLabel: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        color: Theme.colors.textLight,
+        marginBottom: Theme.spacing.md,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
     formContainer: {
         paddingVertical: Theme.spacing.sm,
