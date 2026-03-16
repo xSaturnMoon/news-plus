@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, Alert, TextStyle, StyleProp } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, Alert, TextStyle, StyleProp, Text } from 'react-native';
 import { Theme } from '../theme';
 import { Header, Body, SubHeader, Caption } from '../components/Typography';
 import { CardSoft } from '../components/CardSoft';
 import { ButtonSoft } from '../components/ButtonSoft';
 import { ModalForm } from '../components/ModalForm';
-import { Plus, Bell, Trash2, Watch, Calendar, Type, Clock } from 'lucide-react-native';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from 'date-fns';
+import { Plus, Bell, Trash2, Watch, Calendar, Type, Clock, List } from 'lucide-react-native';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
 import { it } from 'date-fns/locale';
 import * as db from '../services/database';
 
@@ -15,6 +15,7 @@ export const CalendarScreen = () => {
     const [events, setEvents] = useState<db.CalendarEvent[]>([]);
     const [modalVisible, setModalVisible] = useState(false);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
+    const [remindersModalVisible, setRemindersModalVisible] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedEvent, setSelectedEvent] = useState<db.CalendarEvent | null>(null);
 
@@ -70,18 +71,10 @@ export const CalendarScreen = () => {
     const handleEventPress = (event: db.CalendarEvent) => {
         setSelectedEvent(event);
 
-        // Carica dati salvati se presenti
-        let savedDate = event.date;
-        let savedTime = event.startTime;
-
-        try {
-            const data = JSON.parse(event.notifications || '{}');
-            if (data.notifDate) savedDate = data.notifDate;
-            if (data.notifTime) savedTime = data.notifTime;
-        } catch (e) { /* vecchio formato */ }
-
-        setNotifDate(savedDate);
-        setNotifTime(savedTime);
+        // Reset notif form to default (now we support multiple, so default to empty or event date)
+        setNotifDate(event.date);
+        setNotifTime(event.startTime);
+        
         setDetailModalVisible(true);
     };
 
@@ -109,18 +102,23 @@ export const CalendarScreen = () => {
 
             const notifications = require('../services/notifications');
 
-            // Cancel existing if any
-            let existingIds: string[] = [];
+            // Parse existing notifications as an array (handling legacy single object format)
+            let currentNotifs: Array<{ id: string, notifDate: string, notifTime: string }> = [];
             try {
                 const data = JSON.parse(selectedEvent.notifications || '[]');
-                existingIds = Array.isArray(data) ? data : (data.ids || []);
-            } catch (e) { }
+                if (Array.isArray(data)) {
+                    currentNotifs = data;
+                } else if (data && data.ids && Array.isArray(data.ids) && data.ids.length > 0) {
+                    // Legacy single object format migration
+                    currentNotifs = [{
+                        id: data.ids[0],
+                        notifDate: data.notifDate || notifDate,
+                        notifTime: data.notifTime || notifTime
+                    }];
+                }
+            } catch (e) { console.error('Error parsing notifications', e); }
 
-            for (const id of existingIds) {
-                await notifications.cancelNotification(id);
-            }
-
-            // Schedule new
+            // Schedule new notification
             const notifId = await notifications.scheduleNotification(
                 `Promemoria: ${selectedEvent.title}`,
                 `Evento previsto per le ${selectedEvent.startTime}`,
@@ -128,19 +126,23 @@ export const CalendarScreen = () => {
             );
 
             if (notifId) {
+                // Append the new notification to the array
+                const newNotif = { id: notifId, notifDate, notifTime };
+                const updatedNotifs = [...currentNotifs, newNotif];
+
                 const updated = {
                     ...selectedEvent,
-                    notifications: JSON.stringify({
-                        ids: [notifId],
-                        notifDate: notifDate,
-                        notifTime: notifTime
-                    }),
+                    notifications: JSON.stringify(updatedNotifs),
                     enabled: 1
                 };
                 await db.updateEvent(updated);
                 setSelectedEvent(updated);
                 loadEvents();
                 Alert.alert('Successo', 'Notifica programmata correttamente! 🔔');
+                
+                // Reset form fields after success
+                setNotifDate('');
+                setNotifTime('');
             }
         } catch (error) {
             console.error('Error scheduling notification:', error);
@@ -156,7 +158,11 @@ export const CalendarScreen = () => {
                 let existingIds: string[] = [];
                 try {
                     const data = JSON.parse(selectedEvent.notifications || '[]');
-                    existingIds = Array.isArray(data) ? data : (data.ids || []);
+                    if (Array.isArray(data)) {
+                        existingIds = data.map(n => n.id);
+                    } else if (data.ids) {
+                        existingIds = data.ids;
+                    }
                 } catch (e) { }
 
                 for (const id of existingIds) {
@@ -219,9 +225,14 @@ export const CalendarScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.monthHeader}>
-                <ButtonSoft title="<" onPress={() => setCurrentMonth(subMonths(currentMonth, 1))} style={styles.navBtn} />
-                <Header>{format(currentMonth, 'MMMM yyyy', { locale: it })}</Header>
-                <ButtonSoft title=">" onPress={() => setCurrentMonth(addMonths(currentMonth, 1))} style={styles.navBtn} />
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <ButtonSoft title="<" onPress={() => setCurrentMonth(subMonths(currentMonth, 1))} style={styles.navBtn} />
+                    <Header>{format(currentMonth, 'MMMM yyyy', { locale: it })}</Header>
+                    <ButtonSoft title=">" onPress={() => setCurrentMonth(addMonths(currentMonth, 1))} style={styles.navBtn} />
+                </View>
+                <TouchableOpacity onPress={() => setRemindersModalVisible(true)} style={styles.remindersBtn}>
+                    <Bell size={24} color={Theme.colors.primary} />
+                </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={styles.scroll}>
@@ -334,6 +345,44 @@ export const CalendarScreen = () => {
 
                             {selectedEvent.enabled === 1 && (
                                 <View style={styles.notifControls}>
+                                    {/* List of existing notifications for this event */}
+                                    {(() => {
+                                        let currentNotifs: Array<{ id: string, notifDate: string, notifTime: string }> = [];
+                                        try {
+                                            const data = JSON.parse(selectedEvent.notifications || '[]');
+                                            if (Array.isArray(data)) {
+                                                currentNotifs = data;
+                                            } else if (data && data.ids && Array.isArray(data.ids) && data.ids.length > 0) {
+                                                currentNotifs = [{ id: data.ids[0], notifDate: data.notifDate || selectedEvent.date, notifTime: data.notifTime || selectedEvent.startTime }];
+                                            }
+                                        } catch(e) {}
+
+                                        if (currentNotifs.length > 0) {
+                                            return (
+                                                <View style={{ marginBottom: Theme.spacing.md }}>
+                                                    <Caption style={{ marginBottom: 4 }}>Promemoria impostat:</Caption>
+                                                    {currentNotifs.map((n, idx) => (
+                                                        <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Theme.colors.secondary, padding: 8, borderRadius: Theme.borderRadius.sm, marginBottom: 4 }}>
+                                                            <Caption>{n.notifDate} alle {n.notifTime}</Caption>
+                                                            <TouchableOpacity onPress={async () => {
+                                                                const notifications = require('../services/notifications');
+                                                                await notifications.cancelNotification(n.id);
+                                                                const updatedNotifs = currentNotifs.filter(notif => notif.id !== n.id);
+                                                                const updated = { ...selectedEvent, notifications: JSON.stringify(updatedNotifs) };
+                                                                await db.updateEvent(updated);
+                                                                setSelectedEvent(updated);
+                                                                loadEvents();
+                                                            }}>
+                                                                <Trash2 size={16} color={Theme.colors.error} />
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+
                                     <View style={styles.notifInputsRow}>
                                         <View style={styles.notifInputGroup}>
                                             <View style={styles.smallInputCard}>
@@ -361,7 +410,7 @@ export const CalendarScreen = () => {
                                         </View>
                                     </View>
                                     <ButtonSoft
-                                        title="Imposta Promemoria"
+                                        title="Aggiungi Promemoria"
                                         onPress={handleScheduleNotif}
                                         style={styles.scheduleBtn}
                                         textStyle={{ fontSize: 14 }}
@@ -378,6 +427,89 @@ export const CalendarScreen = () => {
                         />
                     </View>
                 )}
+            </ModalForm>
+
+            {/* Reminders List Modal */}
+            <ModalForm
+                visible={remindersModalVisible}
+                onClose={() => setRemindersModalVisible(false)}
+                title="Tutti i Promemoria"
+            >
+                <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 500 }}>
+                    {(() => {
+                        // Extract all reminders
+                        const allReminders: Array<{ eventId: number, eventTitle: string, id: string, notifDate: string, notifTime: string }> = [];
+                        
+                        events.forEach(ev => {
+                            if (ev.enabled !== 1) return;
+                            try {
+                                const data = JSON.parse(ev.notifications || '[]');
+                                if (Array.isArray(data)) {
+                                    data.forEach(n => {
+                                        allReminders.push({ eventId: ev.id!, eventTitle: ev.title, id: n.id, notifDate: n.notifDate, notifTime: n.notifTime });
+                                    });
+                                } else if (data && data.ids && Array.isArray(data.ids) && data.ids.length > 0) {
+                                    allReminders.push({ eventId: ev.id!, eventTitle: ev.title, id: data.ids[0], notifDate: data.notifDate || ev.date, notifTime: data.notifTime || ev.startTime });
+                                }
+                            } catch(e) {}
+                        });
+
+                        if (allReminders.length === 0) {
+                            return <Body style={{ textAlign: 'center', marginTop: 20, color: Theme.colors.textLight }}>Nessun promemoria attivo.</Body>;
+                        }
+
+                        // Group by date
+                        const grouped: Record<string, typeof allReminders> = {};
+                        allReminders.forEach(r => {
+                            if (!grouped[r.notifDate]) grouped[r.notifDate] = [];
+                            grouped[r.notifDate].push(r);
+                        });
+
+                        // Sort dates
+                        const sortedDates = Object.keys(grouped).sort();
+
+                        return sortedDates.map(dateStr => (
+                            <View key={dateStr} style={{ marginBottom: Theme.spacing.md }}>
+                                <Caption style={styles.remindersDateHeader}>
+                                    {format(parseISO(dateStr), 'd MMMM', { locale: it })}
+                                </Caption>
+                                {grouped[dateStr].sort((a,b) => a.notifTime.localeCompare(b.notifTime)).map((r, idx) => (
+                                    <View key={idx} style={styles.reminderListItem}>
+                                        <View style={{ flex: 1 }}>
+                                            <Body style={{ fontWeight: '600' }}>{r.eventTitle}</Body>
+                                            <Caption style={{ color: Theme.colors.primary }}>{r.notifTime}</Caption>
+                                        </View>
+                                        <TouchableOpacity onPress={async () => {
+                                            const notifications = require('../services/notifications');
+                                            await notifications.cancelNotification(r.id);
+                                            
+                                            // Find event and remove this specific notification from its JSON
+                                            const ev = events.find(e => e.id === r.eventId);
+                                            if (ev) {
+                                                try {
+                                                    const data = JSON.parse(ev.notifications || '[]');
+                                                    let updatedNotifs = [];
+                                                    if (Array.isArray(data)) {
+                                                        updatedNotifs = data.filter(n => n.id !== r.id);
+                                                    } else if (data && data.ids) {
+                                                        updatedNotifs = []; // Legacy migrated
+                                                    }
+                                                    const updated = { ...ev, notifications: JSON.stringify(updatedNotifs) };
+                                                    await db.updateEvent(updated);
+                                                    loadEvents();
+                                                } catch(e){}
+                                            }
+                                        }}>
+                                            <View style={styles.reminderDeleteBtn}>
+                                                <Trash2 size={16} color={Theme.colors.error} />
+                                            </View>
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                            </View>
+                        ));
+                    })()}
+                </ScrollView>
             </ModalForm>
         </View>
     );
@@ -398,6 +530,37 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
         paddingHorizontal: Theme.spacing.md,
         minHeight: 40,
+    },
+    remindersBtn: {
+        padding: 8,
+        backgroundColor: Theme.colors.primary + '15',
+        borderRadius: Theme.borderRadius.md,
+    },
+    remindersDateHeader: {
+        fontWeight: 'bold',
+        fontSize: 14,
+        color: Theme.colors.textLight,
+        marginBottom: 8,
+        textTransform: 'capitalize',
+    },
+    reminderListItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.white,
+        padding: Theme.spacing.md,
+        borderRadius: Theme.borderRadius.md,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        ...Theme.shadows.light,
+    },
+    reminderDeleteBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: Theme.colors.error + '15',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     scroll: {
         padding: Theme.spacing.md,

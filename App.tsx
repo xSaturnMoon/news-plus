@@ -6,7 +6,6 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { CalendarScreen } from './src/screens/CalendarScreen';
 import { WeatherScreen } from './src/screens/WeatherScreen';
 import { NewsScreen } from './src/screens/NewsScreen';
-import { SettingsScreen } from './src/screens/SettingsScreen';
 import { ShoppingListScreen } from './src/screens/ShoppingListScreen';
 import { initDatabase } from './src/services/database';
 import { setupNotifications } from './src/services/notifications';
