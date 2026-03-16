@@ -10,6 +10,8 @@ import { Plus, Bell, Trash2, Watch, Calendar, Type, Clock, List } from 'lucide-r
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
 import { it } from 'date-fns/locale';
 import * as db from '../services/database';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { syncNextReminderToWidget } from '../services/widgetSync';
 
 export const CalendarScreen = () => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -24,6 +26,14 @@ export const CalendarScreen = () => {
     const [title, setTitle] = useState('');
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
+    const [hasEndTime, setHasEndTime] = useState(true);
+    // Reanimated for the FINE box toggle
+    const endTimeOpacity = useSharedValue(1);
+    const endTimeScale = useSharedValue(1);
+    const animatedEndStyle = useAnimatedStyle(() => ({
+        opacity: endTimeOpacity.value,
+        transform: [{ scale: endTimeScale.value }],
+    }));
     // Notif state
     const [notifDate, setNotifDate] = useState('');
     const [notifTime, setNotifTime] = useState('');
@@ -35,6 +45,7 @@ export const CalendarScreen = () => {
     const loadEvents = async () => {
         const allEvents = await db.getAllEvents();
         setEvents(allEvents);
+        syncNextReminderToWidget(allEvents);
     };
 
     const daysInMonth = eachDayOfInterval({
@@ -47,6 +58,9 @@ export const CalendarScreen = () => {
         setTitle('');
         setStartTime('');
         setEndTime('');
+        setHasEndTime(true);
+        endTimeOpacity.value = 1;
+        endTimeScale.value = 1;
         setModalVisible(true);
     };
 
@@ -59,7 +73,7 @@ export const CalendarScreen = () => {
         await db.addEvent({
             title,
             startTime,
-            endTime,
+            endTime: hasEndTime ? endTime : '',
             date: format(selectedDate, 'yyyy-MM-dd'),
             notifications: JSON.stringify([]),
             enabled: 1,
@@ -248,37 +262,44 @@ export const CalendarScreen = () => {
                 onClose={() => setModalVisible(false)}
                 title="Nuovo Evento"
             >
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: Theme.spacing.sm }}>
-                    {/* Title Input */}
-                    <View style={styles.modernInputContainer}>
-                        <TextInput
-                            style={styles.modernTextInput}
-                            value={title}
-                            onChangeText={setTitle}
-                            placeholder="Titolo dell'evento..."
-                            placeholderTextColor={Theme.colors.textLight + '80'}
-                        />
-                    </View>
-
-                    {/* Time Selectors Row */}
-                    <View style={styles.timeSectionRow}>
-                        <View style={styles.timePickerBox}>
-                            <Caption style={styles.timeLabel}><Clock size={14} color={Theme.colors.textLight} /> INIZIO</Caption>
-                            <TimeWheelPicker value={startTime || '09:00'} onValueChange={setStartTime} />
-                        </View>
-                        <View style={styles.timePickerBox}>
-                            <Caption style={styles.timeLabel}><Watch size={14} color={Theme.colors.textLight} /> FINE</Caption>
-                            <TimeWheelPicker value={endTime || '10:00'} onValueChange={setEndTime} />
-                        </View>
-                    </View>
-
-                    <ButtonSoft
-                        title="Salva Evento"
-                        onPress={handleSaveEvent}
-                        style={styles.saveBtn}
+                {/* Title Input */}
+                <View style={styles.modernInputContainer}>
+                    <TextInput
+                        style={styles.modernTextInput}
+                        value={title}
+                        onChangeText={setTitle}
+                        placeholder="Titolo dell'evento..."
+                        placeholderTextColor={Theme.colors.textLight + '80'}
                     />
-                    <View style={{ height: Theme.spacing.md }} />
-                </ScrollView>
+                </View>
+
+                {/* Two separate time picker boxes */}
+                <View style={styles.timePickerRow}>
+                    <View style={styles.timePickerCard}>
+                        <Caption style={styles.timeLabel}>INIZIO</Caption>
+                        <TimeWheelPicker value={startTime || '09:00'} onValueChange={setStartTime} />
+                    </View>
+                    <Animated.View style={[styles.timePickerCard, animatedEndStyle]}>
+                        <TouchableOpacity onPress={() => {
+                            const next = !hasEndTime;
+                            setHasEndTime(next);
+                            endTimeOpacity.value = withTiming(next ? 1 : 0.38, { duration: 280 });
+                            endTimeScale.value = withTiming(next ? 1 : 0.93, { duration: 280 });
+                        }}>
+                            <Caption style={[
+                                styles.timeLabel,
+                                !hasEndTime && { textDecorationLine: 'line-through', color: Theme.colors.textLight + '60' }
+                            ]}>FINE</Caption>
+                        </TouchableOpacity>
+                        <TimeWheelPicker value={endTime || '10:00'} onValueChange={setEndTime} />
+                    </Animated.View>
+                </View>
+
+                <ButtonSoft
+                    title="Salva Evento"
+                    onPress={handleSaveEvent}
+                    style={styles.saveBtn}
+                />
             </ModalForm>
 
             {/* Detail Modal */}
@@ -289,19 +310,37 @@ export const CalendarScreen = () => {
             >
                 {selectedEvent && (
                     <View>
-                        <SubHeader>{selectedEvent.title}</SubHeader>
-                        <Body>{selectedEvent.startTime} {selectedEvent.endTime ? `- ${selectedEvent.endTime}` : ''}</Body>
-                        <Body style={{ marginTop: Theme.spacing.md }}>Data: {selectedEvent.date}</Body>
+                        {/* Event title + date info card */}
+                        <View style={styles.modernInputContainer}>
+                            <SubHeader style={{ textAlign: 'center', fontSize: 20 }}>{selectedEvent.title}</SubHeader>
+                            <Caption style={{ textAlign: 'center', marginTop: 4, color: Theme.colors.textLight }}>
+                                {format(parseISO(selectedEvent.date), 'd MMMM yyyy', { locale: it })}
+                            </Caption>
+                        </View>
 
+                        {/* Times row */}
+                        <View style={styles.timePickerRow}>
+                            <View style={styles.timePickerCard}>
+                                <Caption style={styles.timeLabel}>INIZIO</Caption>
+                                <Body style={{ fontWeight: '700', fontSize: 22, marginTop: 4 }}>{selectedEvent.startTime || '—'}</Body>
+                            </View>
+                            <View style={styles.timePickerCard}>
+                                <Caption style={styles.timeLabel}>FINE</Caption>
+                                <Body style={{ fontWeight: '700', fontSize: 22, marginTop: 4 }}>{selectedEvent.endTime || '—'}</Body>
+                            </View>
+                        </View>
+
+                        {/* Reminders section */}
                         <View style={styles.notificationCard}>
+                            {/* Header row */}
                             <View style={styles.switchRow}>
                                 <View style={styles.notifTitleRow}>
                                     <View style={[styles.notifIconCircle, { backgroundColor: selectedEvent.enabled === 1 ? Theme.colors.primary + '20' : Theme.colors.secondary }]}>
-                                        <Bell size={20} color={selectedEvent.enabled === 1 ? Theme.colors.primary : Theme.colors.textLight} />
+                                        <Bell size={18} color={selectedEvent.enabled === 1 ? Theme.colors.primary : Theme.colors.textLight} />
                                     </View>
                                     <View>
                                         <Body style={{ fontWeight: '700' }}>Promemoria</Body>
-                                        <Caption>{selectedEvent.enabled === 1 ? 'Attivo' : 'Disattivato'}</Caption>
+                                        <Caption>{selectedEvent.enabled === 1 ? 'Attivi' : 'Disattivati'}</Caption>
                                     </View>
                                 </View>
                                 <Switch
@@ -317,89 +356,88 @@ export const CalendarScreen = () => {
                                 />
                             </View>
 
-                            {selectedEvent.enabled === 1 && (
-                                <View style={styles.notifControls}>
-                                    {/* List of existing notifications for this event */}
-                                    {(() => {
-                                        let currentNotifs: Array<{ id: string, notifDate: string, notifTime: string }> = [];
-                                        try {
-                                            const data = JSON.parse(selectedEvent.notifications || '[]');
-                                            if (Array.isArray(data)) {
-                                                currentNotifs = data;
-                                            } else if (data && data.ids && Array.isArray(data.ids) && data.ids.length > 0) {
-                                                currentNotifs = [{ id: data.ids[0], notifDate: data.notifDate || selectedEvent.date, notifTime: data.notifTime || selectedEvent.startTime }];
-                                            }
-                                        } catch(e) {}
+                            {selectedEvent.enabled === 1 && (() => {
+                                let currentNotifs: Array<{ id: string, notifDate: string, notifTime: string }> = [];
+                                try {
+                                    const data = JSON.parse(selectedEvent.notifications || '[]');
+                                    if (Array.isArray(data)) currentNotifs = data;
+                                    else if (data?.ids?.length > 0) currentNotifs = [{ id: data.ids[0], notifDate: data.notifDate || selectedEvent.date, notifTime: data.notifTime || selectedEvent.startTime }];
+                                } catch(e) {}
 
-                                        if (currentNotifs.length > 0) {
-                                            return (
-                                                <View style={{ marginBottom: Theme.spacing.md }}>
-                                                    <Caption style={{ marginBottom: 4 }}>Promemoria impostat:</Caption>
-                                                    {currentNotifs.map((n, idx) => (
-                                                        <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Theme.colors.secondary, padding: 8, borderRadius: Theme.borderRadius.sm, marginBottom: 4 }}>
-                                                            <Caption>{n.notifDate} alle {n.notifTime}</Caption>
-                                                            <TouchableOpacity onPress={async () => {
-                                                                const notifications = require('../services/notifications');
-                                                                await notifications.cancelNotification(n.id);
-                                                                const updatedNotifs = currentNotifs.filter(notif => notif.id !== n.id);
-                                                                const updated = { ...selectedEvent, notifications: JSON.stringify(updatedNotifs) };
-                                                                await db.updateEvent(updated);
-                                                                setSelectedEvent(updated);
-                                                                loadEvents();
-                                                            }}>
-                                                                <View style={styles.reminderDeleteBtn}>
-                                                                    <Trash2 size={14} color={Theme.colors.errorText} />
-                                                                </View>
-                                                            </TouchableOpacity>
+                                return (
+                                    <View style={styles.notifControls}>
+                                        {/* Existing reminders */}
+                                        {currentNotifs.length > 0 && (
+                                            <View style={{ marginBottom: Theme.spacing.md }}>
+                                                {currentNotifs.map((n, idx) => (
+                                                    <View key={idx} style={styles.reminderListItem}>
+                                                        <View style={{ flex: 1 }}>
+                                                            <Caption style={{ fontWeight: '600', color: Theme.colors.text }}>{n.notifDate}</Caption>
+                                                            <Caption style={{ color: Theme.colors.textLight }}>{n.notifTime}</Caption>
                                                         </View>
-                                                    ))}
-                                                </View>
-                                            );
-                                        }
-                                        return null;
-                                    })()}
+                                                        <TouchableOpacity onPress={async () => {
+                                                            const notifications = require('../services/notifications');
+                                                            await notifications.cancelNotification(n.id);
+                                                            const updatedNotifs = currentNotifs.filter(notif => notif.id !== n.id);
+                                                            const updated = { ...selectedEvent, notifications: JSON.stringify(updatedNotifs) };
+                                                            await db.updateEvent(updated);
+                                                            setSelectedEvent(updated);
+                                                            loadEvents();
+                                                        }}>
+                                                            <View style={styles.reminderDeleteBtn}>
+                                                                <Trash2 size={14} color={Theme.colors.errorText} />
+                                                            </View>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
 
-                                    <View style={styles.notifInputsRow}>
-                                        <View style={styles.notifInputGroup}>
-                                            <View style={styles.smallInputCard}>
-                                                <Calendar size={16} color={Theme.colors.primary} style={{ marginRight: 6 }} />
-                                                <TextInput
-                                                    style={styles.notifTextInput}
-                                                    value={notifDate}
-                                                    placeholder="AAAA-MM-GG"
-                                                    onChangeText={setNotifDate}
-                                                    placeholderTextColor={Theme.colors.textLight + '80'}
-                                                />
+                                        {/* Add new reminder date + time inputs */}
+                                        <View style={styles.notifInputsRow}>
+                                            <View style={styles.notifInputGroup}>
+                                                <View style={styles.smallInputCard}>
+                                                    <Calendar size={16} color={Theme.colors.primary} style={{ marginRight: 6 }} />
+                                                    <TextInput
+                                                        style={styles.notifTextInput}
+                                                        value={notifDate}
+                                                        placeholder="AAAA-MM-GG"
+                                                        onChangeText={setNotifDate}
+                                                        placeholderTextColor={Theme.colors.textLight + '80'}
+                                                    />
+                                                </View>
+                                            </View>
+                                            <View style={styles.notifInputGroup}>
+                                                <View style={styles.smallInputCard}>
+                                                    <Clock size={16} color={Theme.colors.primary} style={{ marginRight: 6 }} />
+                                                    <TextInput
+                                                        style={styles.notifTextInput}
+                                                        value={notifTime}
+                                                        placeholder="HH:MM"
+                                                        onChangeText={setNotifTime}
+                                                        placeholderTextColor={Theme.colors.textLight + '80'}
+                                                    />
+                                                </View>
                                             </View>
                                         </View>
-                                        <View style={styles.notifInputGroup}>
-                                            <View style={styles.smallInputCard}>
-                                                <Clock size={16} color={Theme.colors.primary} style={{ marginRight: 6 }} />
-                                                <TextInput
-                                                    style={styles.notifTextInput}
-                                                    value={notifTime}
-                                                    placeholder="HH:MM"
-                                                    onChangeText={setNotifTime}
-                                                    placeholderTextColor={Theme.colors.textLight + '80'}
-                                                />
-                                            </View>
-                                        </View>
+
+                                        <ButtonSoft
+                                            title="+ Aggiungi Promemoria"
+                                            onPress={handleScheduleNotif}
+                                            style={styles.scheduleBtn}
+                                            textStyle={{ fontSize: 14 }}
+                                        />
                                     </View>
-                                    <ButtonSoft
-                                        title="Aggiungi Promemoria"
-                                        onPress={handleScheduleNotif}
-                                        style={styles.scheduleBtn}
-                                        textStyle={{ fontSize: 14 }}
-                                    />
-                                </View>
-                            )}
+                                );
+                            })()}
                         </View>
 
+                        {/* Delete button */}
                         <ButtonSoft
                             variant="error"
                             title="Elimina Evento"
                             onPress={handleDeleteEvent}
-                            style={{ marginTop: Theme.spacing.md, marginBottom: Theme.spacing.md }}
+                            style={{ marginTop: Theme.spacing.md, marginBottom: Theme.spacing.xs }}
                         />
                     </View>
                 )}
@@ -604,20 +642,20 @@ const styles = StyleSheet.create({
         padding: 0,
         textAlign: 'center',
     },
-    timeSectionRow: {
+    timePickerRow: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        gap: 12,
+        marginBottom: Theme.spacing.lg,
+    },
+    timePickerCard: {
+        flex: 1,
         alignItems: 'center',
-        marginBottom: Theme.spacing.xl,
+        paddingVertical: Theme.spacing.md,
         backgroundColor: Theme.colors.white,
         borderRadius: Theme.borderRadius.lg,
-        paddingVertical: Theme.spacing.md,
         borderWidth: 1,
         borderColor: Theme.colors.border,
         ...Theme.shadows.light,
-    },
-    timePickerBox: {
-        alignItems: 'center',
     },
     timeLabel: {
         fontSize: 11,
@@ -671,7 +709,8 @@ const styles = StyleSheet.create({
         marginBottom: Theme.spacing.sm,
     },
     saveBtn: {
-        marginTop: Theme.spacing.xs,
+        marginTop: Theme.spacing.sm,
+        marginBottom: Theme.spacing.xs,
     },
     notificationCard: {
         marginTop: Theme.spacing.md,
