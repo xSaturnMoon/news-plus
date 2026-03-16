@@ -67,8 +67,8 @@ function withWidget(config) {
                 // Add to xcode project
                 const groupKey = xcodeProject.findPBXGroupKey({ name: appProjectName });
                 if (groupKey) {
-                    xcodeProject.addSourceFile(`${appProjectName}/AppGroupModule.m`, null, groupKey);
-                    xcodeProject.addSourceFile(`${appProjectName}/AppGroupModule.swift`, null, groupKey);
+                    xcodeProject.addSourceFile(`${appProjectName}/AppGroupModule.m`, {}, groupKey);
+                    xcodeProject.addSourceFile(`${appProjectName}/AppGroupModule.swift`, {}, groupKey);
                 }
             }
         } catch (e) {
