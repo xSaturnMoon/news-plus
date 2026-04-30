@@ -30,6 +30,9 @@ export const ShoppingListScreen = () => {
     const [observingItems, setObservingItems] = useState<db.ShoppingItem[]>([]);
     
     const [joinCodeInput, setJoinCodeInput] = useState('');
+    const [recoverModalVisible, setRecoverModalVisible] = useState(false);
+    const [recoverCodeInput, setRecoverCodeInput] = useState('');
+    const [isRecovering, setIsRecovering] = useState(false);
     const wsRef = useRef<WebSocket | null>(null);
     const observerWsRef = useRef<WebSocket | null>(null);
 
@@ -40,10 +43,9 @@ export const ShoppingListScreen = () => {
     const loadInitial = async () => {
         let savedMyCode = await AsyncStorage.getItem('my_shopping_code');
         if (!savedMyCode) {
-            // Bug #10: use crypto.getRandomValues for a more secure random code
-            const array = new Uint8Array(4);
-            crypto.getRandomValues(array);
-            savedMyCode = Array.from(array, b => b.toString(36)).join('').substring(0, 6).toUpperCase();
+            // Fix: use Math.random() — crypto.getRandomValues non è disponibile in React Native senza polyfill
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            savedMyCode = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
             await AsyncStorage.setItem('my_shopping_code', savedMyCode);
         }
         setMyCode(savedMyCode);
@@ -126,6 +128,43 @@ export const ShoppingListScreen = () => {
         syncToNetwork(data);
     };
 
+    const handleRecoverData = async () => {
+        const code = recoverCodeInput.trim().toUpperCase();
+        if (!code || code.length < 4) return;
+        setIsRecovering(true);
+        try {
+            const res = await fetch(`https://ntfy.sh/newsplus_shopping_${code}/json?poll=1`);
+            const text = await res.text();
+            const lines = text.trim().split('\n').filter(Boolean);
+            if (lines.length === 0) {
+                Alert.alert('Nessun Dato', 'Nessuna lista trovata per questo codice. Verifica che sia corretto.');
+                setIsRecovering(false);
+                return;
+            }
+            const lastLine = JSON.parse(lines[lines.length - 1]);
+            const payload = JSON.parse(lastLine.message);
+            if (payload && Array.isArray(payload.items) && payload.items.length > 0) {
+                await db.replaceShoppingItems(payload.items);
+                // Salva il vecchio codice come codice personale così la sincronizzazione continua
+                await AsyncStorage.setItem('my_shopping_code', code);
+                setMyCode(code);
+                await loadItems();
+                setRecoverCodeInput('');
+                setRecoverModalVisible(false);
+                Alert.alert('✅ Lista Recuperata!', `Trovati ${payload.items.length} prodotti. Il tuo codice è stato ripristinato a: ${code}`);
+            } else {
+                Alert.alert('Lista Vuota', 'Il codice esiste ma la lista era vuota. Se vuoi puoi comunque usare questo codice per riportare la sincronizzazione.');
+                await AsyncStorage.setItem('my_shopping_code', code);
+                setMyCode(code);
+                setRecoverCodeInput('');
+                setRecoverModalVisible(false);
+            }
+        } catch (e) {
+            Alert.alert('Errore', 'Impossibile contattare il server. Controlla la connessione.');
+        }
+        setIsRecovering(false);
+    };
+
     const addFriend = async () => {
         const code = joinCodeInput.trim().toUpperCase();
         if (!code || code === myCode || friends.some(f => f.code === code)) return;
@@ -147,7 +186,7 @@ export const ShoppingListScreen = () => {
                     AsyncStorage.setItem('shopping_friends', JSON.stringify(nf));
                     setFriends(nf);
                 }},
-                { text: 'Salva', onPress: (newName) => {
+                { text: 'Salva', onPress: (newName: string | undefined) => {
                     if (newName?.trim()) {
                         const nf = friends.map(f => f.code === friend.code ? { ...f, name: newName.trim() } : f);
                         AsyncStorage.setItem('shopping_friends', JSON.stringify(nf));
@@ -233,9 +272,9 @@ export const ShoppingListScreen = () => {
                         )}
                         <TouchableOpacity
                             onPress={() => setShareModalVisible(true)}
-                            style={[styles.pinButton, { marginRight: 10, borderColor: theme.colors.primary, backgroundColor: theme.colors.primary + '15' }]}
+                            style={[styles.pinButton, { marginRight: 10, borderColor: theme.colors.border }]}
                         >
-                            <Users size={24} color={theme.colors.primary} />
+                            <Users size={24} color={theme.colors.textLight} />
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -323,12 +362,25 @@ export const ShoppingListScreen = () => {
                     <Body style={{ marginBottom: 15, opacity: 0.7 }}>Il tuo codice personale. Dallo a un amico per permettergli di osservare la tua spesa in tempo reale.</Body>
                     <View style={{ alignItems: 'center', marginBottom: 20 }}>
                         <View style={{ backgroundColor: theme.colors.primary + '20', padding: 15, borderRadius: 15, width: '100%', alignItems: 'center' }}>
-                            <Body style={{ color: theme.colors.primary, fontWeight: '800', fontSize: 24, letterSpacing: 3 }}>{myCode}</Body>
+                            <Body style={{ color: theme.colors.primary, fontWeight: '800', fontSize: 24, letterSpacing: 3 }}>{myCode || '...'}</Body>
                         </View>
                     </View>
                     <ButtonSoft title="Condividi su WhatsApp" onPress={() => Share.share({ message: `Entra nella mia lista della spesa su news+ con il codice: ${myCode}` })} />
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}>
+                        <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.border }} />
+                        <Caption style={{ paddingHorizontal: 15 }}>RECUPERA LISTA</Caption>
+                        <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.border }} />
+                    </View>
+
+                    <Body style={{ marginBottom: 12, opacity: 0.7 }}>Hai perso la lista dopo un aggiornamento? Inserisci il tuo vecchio codice per ripristinarla.</Body>
+                    <ButtonSoft
+                        title="🔄 Recupera dai Backup"
+                        onPress={() => { setShareModalVisible(false); setRecoverModalVisible(true); }}
+                        variant="error"
+                    />
                     
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 25 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 20 }}>
                         <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.border }} />
                         <Caption style={{ paddingHorizontal: 15 }}>AGGIUNGI AMICO</Caption>
                         <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.border }} />
@@ -347,6 +399,28 @@ export const ShoppingListScreen = () => {
                         <View style={{ width: 10 }} />
                         <ButtonSoft title="Aggiungi" onPress={addFriend} disabled={joinCodeInput.trim().length === 0} />
                     </View>
+                </View>
+            </ModalForm>
+
+            {/* Modale Recupero Dati */}
+            <ModalForm visible={recoverModalVisible} onClose={() => setRecoverModalVisible(false)} title="🔄 Recupera Lista">
+                <View style={{ marginTop: 10 }}>
+                    <Body style={{ marginBottom: 8, opacity: 0.7 }}>Inserisci il tuo vecchio codice personale. L'app scaricherà l'ultima versione della tua lista dal server e la ripristinerà.</Body>
+                    <Body style={{ marginBottom: 20, opacity: 0.5, fontSize: 13 }}>Puoi trovare il codice su un altro dispositivo dove hai l'app, oppure se qualcuno ce l'aveva salvato tra gli amici.</Body>
+                    <TextInput
+                        style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.primary, textTransform: 'uppercase', fontSize: 22, letterSpacing: 4, textAlign: 'center', marginBottom: 20 }]}
+                        value={recoverCodeInput}
+                        onChangeText={setRecoverCodeInput}
+                        placeholder="ES. ABC123"
+                        placeholderTextColor={theme.colors.textLight + '40'}
+                        autoCapitalize="characters"
+                        maxLength={8}
+                    />
+                    <ButtonSoft
+                        title={isRecovering ? 'Recupero in corso...' : 'Recupera Lista'}
+                        onPress={handleRecoverData}
+                        disabled={recoverCodeInput.trim().length < 4 || isRecovering}
+                    />
                 </View>
             </ModalForm>
 

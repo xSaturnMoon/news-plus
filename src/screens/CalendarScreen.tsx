@@ -222,9 +222,9 @@ export const CalendarScreen = () => {
                 <Header style={styles.screenTitle}>Calendario</Header>
                 <TouchableOpacity 
                     onPress={() => setRemindersModalVisible(true)} 
-                    style={[styles.remindersBtn, { backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', borderColor: theme.colors.border }]}
+                    style={[styles.remindersBtn, { borderColor: theme.colors.border }]}
                 >
-                    <Bell size={22} color={theme.colors.primary} />
+                    <Bell size={24} color={theme.colors.textLight} />
                 </TouchableOpacity>
             </View>
             
@@ -255,7 +255,7 @@ export const CalendarScreen = () => {
                 onClose={() => setModalVisible(false)}
                 title="Nuovo Evento"
             >
-                <View style={[styles.modernInputContainer, { backgroundColor: theme.colors.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                <View style={[styles.modernInputContainer, { backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
                     <TextInput
                         style={[styles.modernTextInput, { color: theme.colors.text }]}
                         value={title}
@@ -266,11 +266,11 @@ export const CalendarScreen = () => {
                 </View>
 
                 <View style={styles.timePickerRow}>
-                    <View style={[styles.timePickerCard, { backgroundColor: theme.colors.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                    <View style={[styles.timePickerCard, { backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
                         <Caption style={styles.timeLabel}>INIZIO</Caption>
                         <TimeWheelPicker value={startTime} onValueChange={setStartTime} />
                     </View>
-                    <Animated.View style={[styles.timePickerCard, { backgroundColor: theme.colors.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }, animatedEndStyle]}>
+                    <Animated.View style={[styles.timePickerCard, { backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }, animatedEndStyle]}>
                         <TouchableOpacity onPress={() => {
                             const next = !hasEndTime;
                             setHasEndTime(next);
@@ -296,27 +296,37 @@ export const CalendarScreen = () => {
                 title="Tutti i Promemoria"
             >
                 <ScrollView style={{ maxHeight: 400 }}>
-                    {events.length === 0 ? (
-                        <Body style={{ textAlign: 'center', opacity: 0.5, marginVertical: 20 }}>
-                            Nessun promemoria impostato
-                        </Body>
-                    ) : (
-                        events
-                            .sort((a, b) => a.date.localeCompare(b.date))
-                            .map((event) => (
-                                <View key={event.id} style={[styles.reminderItem, { borderBottomColor: theme.colors.border }]}>
-                                    <View style={{ flex: 1 }}>
-                                        <SubHeader style={{ fontSize: 16 }}>{event.title}</SubHeader>
-                                        <Caption>{format(parseISO(event.date), 'd MMMM yyyy', { locale: it })} • {event.startTime}</Caption>
+                    {(() => {
+                        const allReminders = events.flatMap(event => {
+                            try {
+                                const notifs = JSON.parse(event.notifications || '[]');
+                                return notifs.map((n: any) => ({ ...n, event }));
+                            } catch (e) { return []; }
+                        }).sort((a, b) => `${a.notifDate} ${a.notifTime}`.localeCompare(`${b.notifDate} ${b.notifTime}`));
+
+                        if (allReminders.length === 0) {
+                            return (
+                                <Body style={{ textAlign: 'center', opacity: 0.5, marginVertical: 40 }}>
+                                    Nessun promemoria attivo
+                                </Body>
+                            );
+                        }
+
+                        return allReminders.map((reminder, idx) => (
+                            <View key={reminder.id || idx} style={[styles.reminderItem, { borderBottomColor: theme.colors.border }]}>
+                                <View style={{ flex: 1 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                        <Bell size={14} color={theme.colors.primary} />
+                                        <SubHeader style={{ fontSize: 16 }}>{reminder.event.title}</SubHeader>
                                     </View>
-                                    <TouchableOpacity onPress={async () => {
-                                        await deleteEventWithNotifications(event);
-                                    }}>
-                                        <Trash2 size={18} color={theme.colors.error} />
-                                    </TouchableOpacity>
+                                    <Caption>Notifica alle {reminder.notifTime} del {format(parseISO(reminder.notifDate), 'd MMM', { locale: it })}</Caption>
                                 </View>
-                            ))
-                    )}
+                                <TouchableOpacity onPress={() => handleDeleteNotif(reminder.id)}>
+                                    <Trash2 size={18} color={theme.colors.error} />
+                                </TouchableOpacity>
+                            </View>
+                        ));
+                    })()}
                 </ScrollView>
                 <ButtonSoft 
                     title="Chiudi" 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Dimensions, FlatList } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, useAnimatedScrollHandler, interpolate, interpolateColor, Extrapolation } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, useAnimatedScrollHandler, interpolate, interpolateColor, Extrapolation, SharedValue } from 'react-native-reanimated';
 import { useTheme } from '../theme/ThemeContext';
 import { Header, Body, SubHeader, Caption } from '../components/Typography';
 import * as weatherService from '../services/weather';
@@ -32,7 +32,7 @@ const getWeatherEmoji = (icon: string) => {
     return map[icon] || '🌤️';
 };
 
-const PaginationDot = ({ index, scrollX, color, inactiveColor }: { index: number, scrollX: Animated.SharedValue<number>, color: string, inactiveColor: string }) => {
+const PaginationDot = ({ index, scrollX, color, inactiveColor }: { index: number, scrollX: SharedValue<number>, color: string, inactiveColor: string }) => {
     const animatedStyle = useAnimatedStyle(() => {
         const widthVal = interpolate(
             scrollX.value,

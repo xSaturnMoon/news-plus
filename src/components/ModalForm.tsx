@@ -37,8 +37,7 @@ export const ModalForm = ({ visible, onClose, title, children }: ModalFormProps)
                 <View style={styles.overlay}>
                     {/* Snappy backdrop animation */}
                     <Animated.View 
-                        entering={FadeIn.duration(200)} 
-                        leaving={FadeOut.duration(150)}
+                        entering={FadeIn.duration(200)}
                         style={StyleSheet.absoluteFill}
                     >
                         <BlurView intensity={30} tint={blurTint} style={StyleSheet.absoluteFill} />

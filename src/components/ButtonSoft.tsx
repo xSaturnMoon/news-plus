@@ -9,6 +9,7 @@ interface ButtonSoftProps {
     style?: StyleProp<ViewStyle>;
     textStyle?: StyleProp<TextStyle>;
     icon?: React.ReactNode;
+    disabled?: boolean;
 }
 
 export const ButtonSoft = ({
@@ -17,7 +18,8 @@ export const ButtonSoft = ({
     variant = 'primary',
     style,
     textStyle,
-    icon
+    icon,
+    disabled = false,
 }: ButtonSoftProps) => {
     const { theme } = useTheme();
 
@@ -39,11 +41,14 @@ export const ButtonSoft = ({
 
     return (
         <TouchableOpacity
+            onPress={disabled ? undefined : onPress}
+            activeOpacity={disabled ? 1 : 0.8}
             style={[
                 styles.button,
                 { 
                     backgroundColor: getBgColor(),
                     borderRadius: theme.borderRadius.md,
+                    opacity: disabled ? 0.4 : 1,
                 },
                 variant === 'outline' && { 
                     borderWidth: 1.5, 
@@ -51,8 +56,6 @@ export const ButtonSoft = ({
                 },
                 style
             ]}
-            onPress={onPress}
-            activeOpacity={0.8}
         >
             <View style={styles.content}>
                 {icon && <View style={{ marginRight: 8 }}>{icon}</View>}

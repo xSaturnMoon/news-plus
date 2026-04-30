@@ -119,7 +119,7 @@ export const replaceShoppingItems = async (items: ShoppingItem[]) => {
             // Include ID to ensure perfect sync
             await db.runAsync(
                 'INSERT INTO shopping_list (id, name, quantity, checked) VALUES (?, ?, ?, ?)',
-                [item.id, item.name, item.quantity, item.checked]
+                [item.id ?? null, item.name, item.quantity, item.checked]
             );
         }
     });

@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 0,
     },
     dayName: {
-        flex: 1.5,
+        flex: 2,
         textTransform: 'capitalize',
         fontWeight: '800',
         fontSize: 17,
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
         fontWeight: '900',
     },
     tempRange: {
-        flex: 3,
+        flex: 2.5,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'flex-end',
@@ -96,9 +96,9 @@ const styles = StyleSheet.create({
         fontSize: 17,
     },
     barContainer: {
-        flex: 1,
+        flex: 0.8,
         height: 4,
-        marginHorizontal: 12,
+        marginHorizontal: 8,
         justifyContent: 'center',
     },
     barBg: {
