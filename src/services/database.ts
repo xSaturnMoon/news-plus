@@ -110,3 +110,17 @@ export const clearCheckedItems = async () => {
     const db = await SQLite.openDatabaseAsync(dbName);
     await db.runAsync('DELETE FROM shopping_list WHERE checked = 1');
 };
+
+export const replaceShoppingItems = async (items: ShoppingItem[]) => {
+    const db = await SQLite.openDatabaseAsync(dbName);
+    await db.withTransactionAsync(async () => {
+        await db.runAsync('DELETE FROM shopping_list');
+        for (const item of items) {
+            // Include ID to ensure perfect sync
+            await db.runAsync(
+                'INSERT INTO shopping_list (id, name, quantity, checked) VALUES (?, ?, ?, ?)',
+                [item.id, item.name, item.quantity, item.checked]
+            );
+        }
+    });
+};

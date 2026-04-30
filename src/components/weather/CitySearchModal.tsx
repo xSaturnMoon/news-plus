@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, View, StyleSheet, TextInput, FlatList, TouchableOpacity } from 'react-native';
 import { Header, Body, Caption } from '../Typography';
-import { Theme } from '../../theme';
+import { useTheme } from '../../theme/ThemeContext';
 import { Search, X, MapPin } from 'lucide-react-native';
 
 interface CitySearchModalProps {
@@ -11,66 +11,58 @@ interface CitySearchModalProps {
 }
 
 export const CitySearchModal: React.FC<CitySearchModalProps> = ({ visible, onClose, onSelectCity }) => {
+    const { theme } = useTheme();
     const [query, setQuery] = useState('');
 
     const suggestions = [
-        // Italia - Principali e Capoluoghi
         'Roma', 'Milano', 'Napoli', 'Torino', 'Palermo', 'Genova', 'Bologna', 'Firenze',
-        'Bari', 'Catania', 'Venezia', 'Verona', 'Messina', 'Padova', 'Trieste', 'Taranto',
-        'Brescia', 'Parma', 'Prato', 'Modena', 'Reggio Calabria', 'Reggio Emilia', 'Perugia',
-        'Livorno', 'Ravenna', 'Cagliari', 'Foggia', 'Rimini', 'Salerno', 'Ferrara',
-        'Sassari', 'Latina', 'Monza', 'Siracusa', 'Pescara', 'Bergamo', 'Forlì', 'Trento',
-        'Vicenza', 'Terni', 'Bolzano', 'Novara', 'Piacenza', 'Ancona', 'Andria', 'Udine',
-        'Arezzo', 'Cesena', 'Lecce', 'Pesaro', 'Barletta', 'Alessandria', 'La Spezia',
-        'Pistoia', 'Pisa', 'Catanzaro', 'Lucca', 'Brindisi', 'Treviso', 'Varese', 'Como',
-        'Grosseto', 'Viterbo', 'Pavia', 'Massa', 'L\'Aquila', 'Potenza', 'Campobasso', 'Aosta',
-        'Benevento', 'Avellino', 'Caserta', 'Matera', 'Trapani', 'Siena', 'Rovigo', 'Crotone',
-        'Cuneo', 'Asti', 'Biella', 'Verbano', 'Lodi', 'Cremona', 'Mantova', 'Belluno',
-        // Mondo - Grandi città
+        'Bari', 'Catania', 'Venezia', 'Verona', 'Messina', 'Padova', 'Trieste',
         'Londra', 'Parigi', 'Berlino', 'Madrid', 'Barcellona', 'Lisbona', 'Amsterdam',
-        'Bruxelles', 'Vienna', 'Praga', 'Budapest', 'Varsavia', 'Atene', 'Stoccolma',
-        'Oslo', 'Copenaghen', 'Helsinki', 'Dublino', 'New York', 'Los Angeles', 'Chicago',
-        'Miami', 'San Francisco', 'Toronto', 'Città del Messico', 'San Paolo', 'Buenos Aires',
-        'Tokyo', 'Kyoto', 'Osaka', 'Pechino', 'Shanghai', 'Hong Kong', 'Seul', 'Bangkok',
-        'Singapore', 'Sydney', 'Melbourne', 'Dubai', 'Abu Dhabi', 'Istanbul', 'Gerusalemme',
-        'Mosca', 'San Pietroburgo', 'Mumbai', 'Nuova Delhi', 'Città del Capo', 'Il Cairo'
-    ].filter((city, index, self) => self.indexOf(city) === index)
-        .filter(city => city.toLowerCase().includes(query.toLowerCase()))
-        .sort();
+        'New York', 'Tokyo', 'Sydney', 'Dubai', 'Singapore'
+    ];
 
-    const handleSelect = (city: string) => {
-        onSelectCity(city);
-        setQuery('');
-        onClose();
-    };
+    const filtered = suggestions.filter(s => s.toLowerCase().includes(query.toLowerCase()));
 
     return (
-        <Modal visible={visible} animationType="slide" transparent>
-            <View style={styles.container}>
+        <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+            <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
                 <View style={styles.header}>
+                    <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                        <X color={theme.colors.text} size={24} />
+                    </TouchableOpacity>
+                    <Header style={{ fontSize: 24 }}>Cerca Città</Header>
+                </View>
+
+                <View style={[styles.searchBar, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+                    <Search color={theme.colors.textLight} size={20} />
                     <TextInput
-                        style={styles.input}
-                        placeholder="Cerca una città..."
-                        placeholderTextColor="#999"
+                        style={[styles.input, { color: theme.colors.text }]}
                         value={query}
                         onChangeText={setQuery}
+                        placeholder="Esempio: Milano..."
+                        placeholderTextColor={theme.colors.textLight + '80'}
                         autoFocus
                     />
-                    <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                        <Caption style={styles.closeTxt}>Annulla</Caption>
-                    </TouchableOpacity>
                 </View>
 
                 <FlatList
-                    data={suggestions}
-                    keyExtractor={(item) => item}
+                    data={filtered}
+                    keyExtractor={item => item}
+                    contentContainerStyle={styles.list}
                     renderItem={({ item }) => (
-                        <TouchableOpacity style={styles.item} onPress={() => handleSelect(item)}>
-                            <MapPin size={18} color={Theme.colors.primary} style={{ marginRight: 12 }} />
-                            <Body>{item}</Body>
+                        <TouchableOpacity 
+                            style={[styles.item, { borderBottomColor: theme.colors.border }]} 
+                            onPress={() => onSelectCity(item)}
+                        >
+                            <MapPin size={18} color={theme.colors.primary} style={{ marginRight: 12 }} />
+                            <Body style={{ fontWeight: '600' }}>{item}</Body>
                         </TouchableOpacity>
                     )}
-                    contentContainerStyle={styles.list}
+                    ListEmptyComponent={
+                        <View style={styles.empty}>
+                            <Body style={{ color: theme.colors.textLight }}>Nessun risultato trovato</Body>
+                        </View>
+                    }
                 />
             </View>
         </Modal>
@@ -78,43 +70,12 @@ export const CitySearchModal: React.FC<CitySearchModalProps> = ({ visible, onClo
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-        marginTop: 100,
-        borderTopLeftRadius: Theme.borderRadius.lg,
-        borderTopRightRadius: Theme.borderRadius.lg,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: Theme.spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    input: {
-        flex: 1,
-        height: 40,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 20,
-        paddingHorizontal: 15,
-        fontSize: 16,
-    },
-    closeBtn: {
-        marginLeft: 15,
-    },
-    closeTxt: {
-        color: Theme.colors.primary,
-        fontWeight: 'bold',
-    },
-    list: {
-        padding: Theme.spacing.md,
-    },
-    item: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f9f9f9',
-    }
+    container: { flex: 1 },
+    header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 50 },
+    closeBtn: { marginRight: 15 },
+    searchBar: { flexDirection: 'row', alignItems: 'center', margin: 20, paddingHorizontal: 15, height: 50, borderRadius: 12, borderWidth: 1 },
+    input: { flex: 1, marginLeft: 10, fontSize: 16 },
+    list: { paddingHorizontal: 20 },
+    item: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1 },
+    empty: { alignItems: 'center', marginTop: 50 },
 });

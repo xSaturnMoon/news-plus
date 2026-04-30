@@ -1,34 +1,50 @@
 import React from 'react';
-import { StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { Theme } from '../theme';
+import { StyleSheet, ViewStyle, StyleProp, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
+import { useTheme } from '../theme/ThemeContext';
 
 interface CardSoftProps {
     children: React.ReactNode;
     style?: StyleProp<ViewStyle>;
-    variant?: 'white' | 'pastel';
 }
 
-const styles = StyleSheet.create({
-    card: {
-        padding: Theme.spacing.md,
-        borderRadius: Theme.borderRadius.lg,
-        marginVertical: Theme.spacing.sm,
-    },
-});
+export const CardSoft = ({ children, style }: CardSoftProps) => {
+    const { theme, mode } = useTheme();
+    const isDark = mode === 'dark';
 
-export const CardSoft = ({ children, style, variant = 'white' }: CardSoftProps) => {
     return (
         <Animated.View
             entering={FadeInUp.duration(600).springify()}
             style={[
-                styles.card,
-                { backgroundColor: variant === 'white' ? Theme.colors.card : Theme.colors.primary },
-                Theme.shadows.light as any,
+                styles.cardContainer,
+                {
+                    borderColor: theme.colors.border,
+                    borderRadius: theme.borderRadius.lg,
+                },
+                theme.shadows.medium,
                 style
             ]}
         >
-            {children}
+            <BlurView 
+                intensity={isDark ? 15 : 25} 
+                tint={isDark ? 'dark' : 'light'} 
+                style={[StyleSheet.absoluteFill, { backgroundColor: theme.colors.card }]} 
+            />
+            <View style={[styles.innerContent, { padding: theme.spacing.md }]}>
+                {children}
+            </View>
         </Animated.View>
     );
 };
+
+const styles = StyleSheet.create({
+    cardContainer: {
+        marginVertical: 8,
+        borderWidth: 1,
+        overflow: 'hidden',
+    },
+    innerContent: {
+        width: '100%',
+    },
+});

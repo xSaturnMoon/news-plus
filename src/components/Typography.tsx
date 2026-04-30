@@ -1,24 +1,23 @@
 import React from 'react';
 import { Text, TextStyle, TextProps, StyleProp } from 'react-native';
-import { Theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
 
-interface TypographyProps extends TextProps {
-    children: React.ReactNode;
-    style?: StyleProp<TextStyle>;
-}
+export const Header: React.FC<TextProps> = ({ children, style, ...props }) => {
+    const { theme } = useTheme();
+    return <Text style={[theme.typography.header, style]} {...props}>{children}</Text>;
+};
 
-export const Header = ({ children, style, ...props }: TypographyProps) => (
-    <Text style={[Theme.typography.header, style]} {...props}>{children}</Text>
-);
+export const SubHeader: React.FC<TextProps> = ({ children, style, ...props }) => {
+    const { theme } = useTheme();
+    return <Text style={[theme.typography.subheader, style]} {...props}>{children}</Text>;
+};
 
-export const SubHeader = ({ children, style, ...props }: TypographyProps) => (
-    <Text style={[Theme.typography.subheader, style]} {...props}>{children}</Text>
-);
+export const Body: React.FC<TextProps> = ({ children, style, ...props }) => {
+    const { theme } = useTheme();
+    return <Text style={[theme.typography.body, style]} {...props}>{children}</Text>;
+};
 
-export const Body = ({ children, style, ...props }: TypographyProps) => (
-    <Text style={[Theme.typography.body, style]} {...props}>{children}</Text>
-);
-
-export const Caption = ({ children, style, ...props }: TypographyProps) => (
-    <Text style={[Theme.typography.caption, style]} {...props}>{children}</Text>
-);
+export const Caption: React.FC<TextProps> = ({ children, style, ...props }) => {
+    const { theme } = useTheme();
+    return <Text style={[theme.typography.caption, style]} {...props}>{children}</Text>;
+};

@@ -1,8 +1,8 @@
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, Text } from 'react-native';
+import { useTheme } from '../../theme/ThemeContext';
 import { CardSoft } from '../CardSoft';
 import { Body, Caption } from '../Typography';
-import { Theme } from '../../theme';
 
 interface HourlyForecastProps {
     data: Array<{
@@ -15,54 +15,52 @@ interface HourlyForecastProps {
 }
 
 export const HourlyForecast: React.FC<HourlyForecastProps> = ({ data, getWeatherEmoji }) => {
+    const { theme } = useTheme();
     return (
-        <View style={styles.container}>
+        <CardSoft style={styles.card}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll}>
                 {data.map((item, index) => (
                     <View key={index} style={styles.item}>
-                        <Caption style={styles.time}>{item.time}</Caption>
-                        <Body style={styles.emoji}>{getWeatherEmoji(item.icon)}</Body>
-                        <Body style={styles.temp}>{item.temp}°</Body>
+                        <Caption style={[styles.time, { color: theme.colors.text }]}>{item.time}</Caption>
+                        <Text style={styles.emoji}>{getWeatherEmoji(item.icon)}</Text>
+                        <Body style={[styles.temp, { color: theme.colors.text }]}>{item.temp}°</Body>
                         {item.pop > 0 && (
-                            <Caption style={styles.pop}>{item.pop}%</Caption>
+                            <Caption style={[styles.pop, { color: theme.colors.primary }]}>{item.pop}%</Caption>
                         )}
                     </View>
                 ))}
             </ScrollView>
-        </View>
+        </CardSoft>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        marginVertical: Theme.spacing.md,
-        backgroundColor: 'rgba(255,255,255,0.6)',
-        borderRadius: Theme.borderRadius.lg,
-        padding: Theme.spacing.md,
+    card: {
+        marginVertical: 15,
+        paddingVertical: 15,
     },
     scroll: {
         flexDirection: 'row',
     },
     item: {
         alignItems: 'center',
-        width: 60,
-        marginRight: Theme.spacing.sm,
+        width: 65,
     },
     time: {
-        color: Theme.colors.text,
-        fontWeight: 'bold',
+        fontWeight: '800',
+        fontSize: 12,
     },
     emoji: {
-        fontSize: 24,
-        marginVertical: 4,
+        fontSize: 26,
+        marginVertical: 6,
     },
     temp: {
-        color: Theme.colors.text,
-        fontWeight: 'bold',
+        fontWeight: '800',
+        fontSize: 17,
     },
     pop: {
-        color: '#000000',
         fontSize: 10,
-        fontWeight: 'bold',
+        fontWeight: '900',
+        marginTop: 2,
     }
 });

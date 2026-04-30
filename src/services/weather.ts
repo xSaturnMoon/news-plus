@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
+import { WEATHER_API_KEY } from '../constants/apiKeys';
 
-const DEFAULT_API_KEY = '606a5e4cabb222a23f2ed9cd0905584c';
+const DEFAULT_API_KEY = WEATHER_API_KEY;
 
 export interface WeatherData {
     city: string;
@@ -83,9 +84,13 @@ const processForecastData = (forecastData: any, currentData?: any) => {
                 const interpolatedTime = current.dt + (h * 3600);
                 const date = new Date(interpolatedTime * 1000);
 
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const dayStr = String(date.getDate()).padStart(2, '0');
+
                 allForecasts.push({
                     dt: interpolatedTime,
-                    dateKey: date.toISOString().split('T')[0],
+                    dateKey: `${year}-${month}-${dayStr}`,
                     time: date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
                     temp: Math.round(current.temp + (next.temp - current.temp) * ratio),
                     icon: ratio < 0.5 ? current.icon : next.icon,
@@ -98,9 +103,12 @@ const processForecastData = (forecastData: any, currentData?: any) => {
         // Add the very last raw block
         const last = rawBlocks[rawBlocks.length - 1];
         const lastDate = new Date(last.dt * 1000);
+        const lYear = lastDate.getFullYear();
+        const lMonth = String(lastDate.getMonth() + 1).padStart(2, '0');
+        const lDay = String(lastDate.getDate()).padStart(2, '0');
         allForecasts.push({
             dt: last.dt,
-            dateKey: lastDate.toISOString().split('T')[0],
+            dateKey: `${lYear}-${lMonth}-${lDay}`,
             time: lastDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
             temp: Math.round(last.temp),
             icon: last.icon,

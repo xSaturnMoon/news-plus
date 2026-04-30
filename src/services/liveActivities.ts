@@ -45,14 +45,13 @@ export const startShoppingLiveActivity = async (listName: string, items: Shoppin
                 .map(i => `• ${i.name.toUpperCase()} (${i.quantity})`)
                 .join('\n');
 
-            const body = listItems;
-
-            await notifications.scheduleNotification(
+            const notifId = await notifications.scheduleNotification(
                 '🛒 Lista Della Spesa',
-                body,
+                listItems,
                 new Date(Date.now() + 500)
             );
-            return 'fallback-notification';
+            // Encode the real notification ID so we can cancel it later
+            return notifId ? `fallback-${notifId}` : null;
         }
 
         return activityId;
@@ -84,7 +83,13 @@ export const updateShoppingLiveActivity = async (activityId: string, items: Shop
 
 export const endShoppingLiveActivity = async (activityId: string) => {
     try {
-        await LiveActivities.endActivity(activityId);
+        if (activityId.startsWith('fallback-')) {
+            // Cancel the actual fallback notification
+            const realNotifId = activityId.replace('fallback-', '');
+            await notifications.cancelNotification(realNotifId);
+        } else {
+            await LiveActivities.endActivity(activityId);
+        }
     } catch (error) {
         console.error('Error ending Live Activity:', error);
     }

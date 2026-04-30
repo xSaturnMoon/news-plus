@@ -30,8 +30,10 @@ const MOCK_NEWS: NewsItem[] = [
     },
 ];
 
+import { NEWS_API_KEY } from '../constants/apiKeys';
+
 // Default key provided by user (NewsData.io)
-const DEFAULT_NEWS_API_KEY = 'pub_371038135476481da0927da307090b73';
+const DEFAULT_NEWS_API_KEY = NEWS_API_KEY;
 
 const formatRelativeDate = (date: Date) => {
     const now = new Date();

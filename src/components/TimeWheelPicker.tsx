@@ -1,57 +1,6 @@
-import React, { useRef, useEffect } from 'react';
-import { View, ScrollView, Text, StyleSheet } from 'react-native';
-import { Theme } from '../theme';
-
-const ITEM_HEIGHT = 48;
-const VISIBLE_ITEMS = 5;
-const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
-
-interface WheelColumnProps {
-    data: string[];
-    selectedIndex: number;
-    onScrollEnd: (index: number) => void;
-}
-
-const WheelColumn = ({ data, selectedIndex, onScrollEnd }: WheelColumnProps) => {
-    const scrollRef = useRef<ScrollView>(null);
-
-    useEffect(() => {
-        setTimeout(() => {
-            scrollRef.current?.scrollTo({ y: selectedIndex * ITEM_HEIGHT, animated: false });
-        }, 50);
-    }, []);
-
-    return (
-        <View style={styles.columnContainer}>
-            <ScrollView
-                ref={scrollRef}
-                showsVerticalScrollIndicator={false}
-                snapToInterval={ITEM_HEIGHT}
-                decelerationRate="fast"
-                contentContainerStyle={styles.columnContent}
-                onMomentumScrollEnd={(e) => {
-                    const index = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
-                    onScrollEnd(Math.max(0, Math.min(index, data.length - 1)));
-                }}
-                scrollEventThrottle={16}
-            >
-                {/* padding items */}
-                <View style={{ height: ITEM_HEIGHT * Math.floor(VISIBLE_ITEMS / 2) }} />
-                {data.map((item, i) => (
-                    <View key={i} style={styles.item}>
-                        <Text style={styles.itemText}>{item}</Text>
-                    </View>
-                ))}
-                <View style={{ height: ITEM_HEIGHT * Math.floor(VISIBLE_ITEMS / 2) }} />
-            </ScrollView>
-            {/* Selection highlight overlay */}
-            <View pointerEvents="none" style={styles.selectionHighlight} />
-            {/* Fade top and bottom */}
-            <View pointerEvents="none" style={styles.fadeTop} />
-            <View pointerEvents="none" style={styles.fadeBottom} />
-        </View>
-    );
-};
+import React from 'react';
+import { View, TextInput, StyleSheet } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
 
 interface TimeWheelPickerProps {
     value: string; // "HH:MM"
@@ -59,38 +8,62 @@ interface TimeWheelPickerProps {
 }
 
 export const TimeWheelPicker = ({ value, onValueChange }: TimeWheelPickerProps) => {
-    const [h, m] = (value || '09:00').split(':');
-    const currentHour = useRef(h || '09');
-    const currentMinute = useRef(m || '00');
+    const { theme } = useTheme();
 
-    const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-    const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+    // Auto-format come HH:MM e validazione orario
+    const handleChange = (text: string) => {
+        let digits = text.replace(/[^0-9]/g, '');
+        
+        // Smart padding for hours
+        if (digits.length >= 1) {
+            if (parseInt(digits[0], 10) > 2) {
+                digits = '0' + digits;
+            }
+        }
+        // Limit hours to 23
+        if (digits.length >= 2) {
+            let hours = parseInt(digits.substring(0, 2), 10);
+            if (hours > 23) digits = '23' + digits.substring(2);
+        }
+        // Smart padding for minutes
+        if (digits.length >= 3) {
+            if (parseInt(digits[2], 10) > 5) {
+                digits = digits.substring(0, 2) + '0' + digits.substring(2);
+            }
+        }
+        // Limit minutes to 59
+        if (digits.length >= 4) {
+            let minutes = parseInt(digits.substring(2, 4), 10);
+            if (minutes > 59) digits = digits.substring(0, 2) + '59';
+        }
+        
+        // Keep max 4 digits
+        digits = digits.substring(0, 4);
 
-    const hourIndex = hours.indexOf(currentHour.current);
-    const minuteIndex = minutes.indexOf(currentMinute.current);
-
-    const handleHourChange = (index: number) => {
-        currentHour.current = hours[index];
-        onValueChange(`${currentHour.current}:${currentMinute.current}`);
-    };
-
-    const handleMinuteChange = (index: number) => {
-        currentMinute.current = minutes[index];
-        onValueChange(`${currentHour.current}:${currentMinute.current}`);
+        let formatted = digits;
+        if (digits.length > 2) {
+            formatted = digits.substring(0, 2) + ':' + digits.substring(2);
+        }
+        onValueChange(formatted);
     };
 
     return (
         <View style={styles.wrapper}>
-            <WheelColumn
-                data={hours}
-                selectedIndex={hourIndex === -1 ? 9 : hourIndex}
-                onScrollEnd={handleHourChange}
-            />
-            <Text style={styles.colon}>:</Text>
-            <WheelColumn
-                data={minutes}
-                selectedIndex={minuteIndex === -1 ? 0 : minuteIndex}
-                onScrollEnd={handleMinuteChange}
+            <TextInput
+                style={[
+                    styles.input, 
+                    { 
+                        color: theme.colors.text, 
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
+                    }
+                ]}
+                value={value}
+                onChangeText={handleChange}
+                keyboardType="numeric"
+                placeholder="09:00"
+                placeholderTextColor={theme.colors.textLight + '50'}
+                maxLength={5}
             />
         </View>
     );
@@ -98,62 +71,19 @@ export const TimeWheelPicker = ({ value, onValueChange }: TimeWheelPickerProps) 
 
 const styles = StyleSheet.create({
     wrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        height: 60,
         justifyContent: 'center',
-        height: PICKER_HEIGHT,
-    },
-    columnContainer: {
-        width: 64,
-        height: PICKER_HEIGHT,
-        overflow: 'hidden',
-    },
-    columnContent: {},
-    item: {
-        height: ITEM_HEIGHT,
         alignItems: 'center',
-        justifyContent: 'center',
+        width: '100%',
+        paddingHorizontal: 10,
     },
-    itemText: {
-        fontSize: 26,
-        fontWeight: '500',
-        color: Theme.colors.text,
-    },
-    selectionHighlight: {
-        position: 'absolute',
-        top: ITEM_HEIGHT * Math.floor(VISIBLE_ITEMS / 2),
-        height: ITEM_HEIGHT,
-        left: 4,
-        right: 4,
-        backgroundColor: Theme.colors.primary + '40',
-        borderRadius: 12,
-    },
-    fadeTop: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: ITEM_HEIGHT * 2,
-        backgroundColor: 'transparent',
-        // Semi-white gradient to fade items above selection
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-    },
-    fadeBottom: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: ITEM_HEIGHT * 2,
-        backgroundColor: 'transparent',
-        borderBottomLeftRadius: 12,
-        borderBottomRightRadius: 12,
-    },
-    colon: {
-        fontSize: 28,
+    input: {
+        width: '100%',
+        height: 50,
+        fontSize: 24,
         fontWeight: 'bold',
-        color: Theme.colors.text,
-        marginHorizontal: 8,
-        marginTop: -4,
+        textAlign: 'center',
+        borderWidth: 1,
+        borderRadius: 12,
     },
 });

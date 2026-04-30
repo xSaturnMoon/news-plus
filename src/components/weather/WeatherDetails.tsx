@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useTheme } from '../../theme/ThemeContext';
 import { Body, Caption } from '../Typography';
-import { Theme } from '../../theme';
 import { Droplets, Wind, Thermometer, Eye, Gauge } from 'lucide-react-native';
+import { CardSoft } from '../CardSoft';
 
 interface WeatherDetailsProps {
     current: {
@@ -14,23 +15,26 @@ interface WeatherDetailsProps {
     };
 }
 
-const DetailCard = ({ icon: Icon, label, value, unit }: any) => (
-    <View style={styles.detailCard}>
-        <View style={styles.labelRow}>
-            <Icon size={14} color={Theme.colors.textLight} />
-            <Caption style={styles.label}>{label}</Caption>
-        </View>
-        <Body style={styles.value}>{value}{unit}</Body>
-    </View>
-);
+const DetailCard = ({ icon: Icon, label, value, unit }: any) => {
+    const { theme } = useTheme();
+    return (
+        <CardSoft style={styles.detailCard}>
+            <View style={styles.labelRow}>
+                <Icon size={14} color={theme.colors.textLight} />
+                <Caption style={[styles.label, { color: theme.colors.textLight }]}>{label}</Caption>
+            </View>
+            <Body style={[styles.value, { color: theme.colors.text }]}>{value}{unit}</Body>
+        </CardSoft>
+    );
+};
 
 export const WeatherDetails: React.FC<WeatherDetailsProps> = ({ current }) => {
     return (
         <View style={styles.container}>
             <View style={styles.grid}>
-                <DetailCard icon={Thermometer} label="PERCEPITA" value={current.feelsLike} unit="°" />
+                <DetailCard icon={Thermometer} label="PERCEPITA" value={Math.round(current.feelsLike)} unit="°" />
                 <DetailCard icon={Droplets} label="UMIDITÀ" value={current.humidity} unit="%" />
-                <DetailCard icon={Wind} label="VENTO" value={current.windSpeed} unit=" km/h" />
+                <DetailCard icon={Wind} label="VENTO" value={Math.round(current.windSpeed)} unit=" km/h" />
                 <DetailCard icon={Eye} label="VISIBILITÀ" value={(current.visibility / 1000).toFixed(1)} unit=" km" />
                 <DetailCard icon={Gauge} label="PRESSIONE" value={current.pressure} unit=" hPa" />
             </View>
@@ -40,7 +44,7 @@ export const WeatherDetails: React.FC<WeatherDetailsProps> = ({ current }) => {
 
 const styles = StyleSheet.create({
     container: {
-        marginVertical: Theme.spacing.md,
+        marginVertical: 15,
     },
     grid: {
         flexDirection: 'row',
@@ -48,11 +52,9 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     detailCard: {
-        width: '48%',
-        backgroundColor: 'rgba(255,255,255,0.6)',
-        borderRadius: Theme.borderRadius.lg,
-        padding: Theme.spacing.md,
-        marginBottom: Theme.spacing.sm,
+        width: '48.5%',
+        marginBottom: 10,
+        padding: 12,
     },
     labelRow: {
         flexDirection: 'row',
@@ -60,14 +62,13 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     label: {
-        color: Theme.colors.textLight,
-        marginLeft: 6,
+        marginLeft: 8,
         fontSize: 10,
-        fontWeight: 'bold',
+        fontWeight: '800',
+        letterSpacing: 0.8,
     },
     value: {
-        color: Theme.colors.text,
-        fontSize: 20,
-        fontWeight: 'bold',
+        fontSize: 22,
+        fontWeight: '800',
     },
 });

@@ -86,6 +86,12 @@ export const cancelAllNotifications = async () => {
     await Notifications.cancelAllScheduledNotificationsAsync();
 };
 
+export const clearBadge = async () => {
+    try {
+        await Notifications.setBadgeCountAsync(0);
+    } catch (e) {}
+};
+
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
         shouldShowAlert: true,

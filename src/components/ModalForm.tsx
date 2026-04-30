@@ -5,10 +5,14 @@ import {
     StyleSheet,
     TouchableOpacity,
     Pressable,
+    Keyboard,
+    TouchableWithoutFeedback,
 } from 'react-native';
-import { Theme } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
 import { SubHeader } from './Typography';
 import { X } from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
+import Animated, { FadeIn, FadeOut, SlideInUp } from 'react-native-reanimated';
 
 interface ModalFormProps {
     visible: boolean;
@@ -18,29 +22,58 @@ interface ModalFormProps {
 }
 
 export const ModalForm = ({ visible, onClose, title, children }: ModalFormProps) => {
+    const { theme, mode } = useTheme();
+    const isDark = mode === 'dark';
+    const blurTint = isDark ? 'systemChromeMaterialDark' : 'light';
+
     return (
         <Modal
             visible={visible}
             transparent
-            animationType="fade"
+            animationType="none"
             onRequestClose={onClose}
         >
-            {/* Full-screen overlay: tap backdrop to close */}
-            <View style={styles.overlay} pointerEvents="box-none">
-                <Pressable style={styles.backdrop} onPress={onClose} />
-                {/* Card: plain View so scroll gestures pass through freely */}
-                <View style={[styles.content, Theme.shadows.medium]}>
-                    <View style={styles.header}>
-                        <SubHeader>{title}</SubHeader>
-                        <TouchableOpacity onPress={onClose} hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}>
-                            <X {...({ color: Theme.colors.text, size: 24 } as any)} />
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.body}>
-                        {children}
-                    </View>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                <View style={styles.overlay}>
+                    {/* Snappy backdrop animation */}
+                    <Animated.View 
+                        entering={FadeIn.duration(200)} 
+                        leaving={FadeOut.duration(150)}
+                        style={StyleSheet.absoluteFill}
+                    >
+                        <BlurView intensity={30} tint={blurTint} style={StyleSheet.absoluteFill} />
+                        <Pressable style={styles.backdrop} onPress={onClose} />
+                    </Animated.View>
+
+                    {/* Snappy, non-bouncy content animation */}
+                    <Animated.View 
+                        entering={SlideInUp.duration(250).withCallback(() => {})}
+                        style={[
+                            styles.contentContainer, 
+                            theme.shadows.medium,
+                            { borderColor: theme.colors.border }
+                        ]}
+                    >
+                        <View style={{ width: '100%' }}>
+                            <View style={[styles.glassCard, { backgroundColor: isDark ? 'rgba(20, 20, 24, 0.85)' : 'rgba(255, 255, 255, 0.95)' }]}>
+                                <BlurView intensity={40} tint={blurTint} style={StyleSheet.absoluteFill} />
+                                <View style={styles.header}>
+                                    <SubHeader style={styles.titleText}>{title}</SubHeader>
+                                    <TouchableOpacity 
+                                        onPress={onClose} 
+                                        style={[styles.closeButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}
+                                    >
+                                        <X color={theme.colors.text} size={20} />
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={styles.body}>
+                                    {children}
+                                </View>
+                            </View>
+                        </View>
+                    </Animated.View>
                 </View>
-            </View>
+            </TouchableWithoutFeedback>
         </Modal>
     );
 };
@@ -48,26 +81,42 @@ export const ModalForm = ({ visible, onClose, title, children }: ModalFormProps)
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.45)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: Theme.spacing.lg,
+        justifyContent: 'flex-start', // iOS style: top sheets
+        paddingHorizontal: 0,
     },
     backdrop: {
-        ...StyleSheet.absoluteFillObject,
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.3)',
     },
-    content: {
+    contentContainer: {
         width: '100%',
-        backgroundColor: Theme.colors.white,
-        borderRadius: Theme.borderRadius.lg,
-        padding: Theme.spacing.lg,
-        paddingBottom: Theme.spacing.xl,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+        overflow: 'hidden',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderTopWidth: 0,
+    },
+    glassCard: {
+        padding: 24,
+        paddingTop: 60, // More space for top sheets
+        paddingBottom: 24,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: Theme.spacing.lg,
+        marginBottom: 20,
+    },
+    titleText: {
+        fontSize: 20,
+        fontWeight: '800',
+    },
+    closeButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     body: {
         width: '100%',

@@ -1,67 +1,84 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { Theme } from '../theme';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, View, StyleProp } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
 
 interface ButtonSoftProps {
-    onPress: () => void;
     title: string;
-    variant?: 'primary' | 'secondary' | 'accent' | 'error';
-    style?: ViewStyle;
-    textStyle?: TextStyle;
-    disabled?: boolean;
+    onPress: () => void;
+    variant?: 'primary' | 'secondary' | 'error' | 'outline';
+    style?: StyleProp<ViewStyle>;
+    textStyle?: StyleProp<TextStyle>;
+    icon?: React.ReactNode;
 }
 
 export const ButtonSoft = ({
-    onPress,
     title,
+    onPress,
     variant = 'primary',
     style,
     textStyle,
-    disabled
+    icon
 }: ButtonSoftProps) => {
-    const getBackgroundColor = () => {
-        if (disabled) return Theme.colors.border;
+    const { theme } = useTheme();
+
+    const getBgColor = () => {
         switch (variant) {
-            case 'primary': return Theme.colors.primary;
-            case 'secondary': return Theme.colors.secondary;
-            case 'accent': return Theme.colors.accent;
-            case 'error': return Theme.colors.error;
-            default: return Theme.colors.primary;
+            case 'primary': return theme.colors.primary;
+            case 'secondary': return theme.colors.secondary;
+            case 'error': return theme.colors.error;
+            case 'outline': return 'transparent';
+            default: return theme.colors.primary;
         }
     };
 
     const getTextColor = () => {
-        if (disabled) return Theme.colors.textLight;
-        if (variant === 'error') return Theme.colors.errorText;
-        return Theme.colors.text;
+        if (variant === 'outline') return theme.colors.primary;
+        if (variant === 'primary' || variant === 'error') return '#FFFFFF';
+        return theme.colors.text;
     };
 
     return (
         <TouchableOpacity
-            onPress={onPress}
-            disabled={disabled}
-            activeOpacity={0.7}
             style={[
                 styles.button,
-                { backgroundColor: getBackgroundColor() },
-                Theme.shadows.light,
+                { 
+                    backgroundColor: getBgColor(),
+                    borderRadius: theme.borderRadius.md,
+                },
+                variant === 'outline' && { 
+                    borderWidth: 1.5, 
+                    borderColor: theme.colors.primary 
+                },
                 style
             ]}
+            onPress={onPress}
+            activeOpacity={0.8}
         >
-            <Text style={[Theme.typography.button, { color: getTextColor() }, textStyle]}>
-                {title}
-            </Text>
+            <View style={styles.content}>
+                {icon && <View style={{ marginRight: 8 }}>{icon}</View>}
+                <Text style={[
+                    theme.typography.button,
+                    { color: getTextColor(), fontWeight: '800' },
+                    textStyle
+                ]}>
+                    {title}
+                </Text>
+            </View>
         </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
     button: {
-        paddingVertical: Theme.spacing.md,
-        paddingHorizontal: Theme.spacing.xl,
-        borderRadius: Theme.borderRadius.md,
+        minHeight: 56,
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 52, // Accessibility: touch target > 44px
+        paddingHorizontal: 24,
+        overflow: 'hidden',
+    },
+    content: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });

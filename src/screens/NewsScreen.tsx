@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, Image, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
-import { Theme } from '../theme';
+import { View, StyleSheet, FlatList, Image, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Keyboard, Pressable } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
 import { Header, Body, SubHeader, Caption } from '../components/Typography';
 import { CardSoft } from '../components/CardSoft';
 import { ButtonSoft } from '../components/ButtonSoft';
 import * as newsService from '../services/news';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { Search, X } from 'lucide-react-native';
 
 export const NewsScreen = () => {
+    const { theme } = useTheme();
     const [news, setNews] = useState<newsService.NewsItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -17,196 +17,150 @@ export const NewsScreen = () => {
     const [isSearching, setIsSearching] = useState(false);
 
     useEffect(() => {
-        loadNews();
+        loadInitialNews();
     }, []);
 
-    const loadNews = async (query?: string) => {
-        if (!refreshing) setLoading(true);
-        const apiKey = await AsyncStorage.getItem('news_api_key') || '';
-        const data = await newsService.fetchNews(apiKey, query);
-        setNews(data);
-        setLoading(false);
-        setRefreshing(false);
+    const loadInitialNews = async () => {
+        try {
+            setLoading(true);
+            const data = await newsService.fetchNews();
+            setNews(data);
+            setIsSearching(false);
+        } catch (error) {
+            console.error('Failed to load news', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleSearch = () => {
-        loadNews(searchQuery);
-        setIsSearching(true);
+    const handleSearch = async () => {
+        if (!searchQuery.trim()) return;
+        try {
+            setLoading(true);
+            const data = await newsService.fetchNews(undefined, searchQuery);
+            setNews(data);
+            setIsSearching(true);
+        } catch (error) {
+            console.error('Search failed', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const clearSearch = () => {
         setSearchQuery('');
-        setIsSearching(false);
-        loadNews();
+        loadInitialNews();
     };
 
-    const handleOpenNews = async (url: string) => {
-        await WebBrowser.openBrowserAsync(url);
-    };
-
-    const onRefresh = useCallback(() => {
+    const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        loadNews(isSearching ? searchQuery : undefined);
+        await newsService.fetchNews(undefined, isSearching ? searchQuery : undefined)
+            .then(setNews)
+            .catch(console.error)
+            .finally(() => setRefreshing(false));
     }, [isSearching, searchQuery]);
 
     const renderItem = ({ item }: { item: newsService.NewsItem }) => (
         <CardSoft style={styles.newsCard}>
-            {item.imageUrl && (
-                <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" />
-            )}
-            <View style={styles.content}>
-                <View style={styles.metaContainer}>
-                    <Caption style={styles.source}>{item.source.toUpperCase()}</Caption>
-                    <Caption style={styles.date}>{item.date}</Caption>
+            <TouchableOpacity onPress={() => WebBrowser.openBrowserAsync(item.url)} activeOpacity={0.8}>
+                {item.imageUrl ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.image} />
+                ) : null}
+                <View style={{ padding: 15 }}>
+                    <Caption style={{ marginBottom: 5 }}>{item.source} • {item.date}</Caption>
+                    <SubHeader style={styles.title} numberOfLines={2}>{item.title}</SubHeader>
+                    {item.excerpt ? (
+                        <Body style={styles.excerpt} numberOfLines={3}>{item.excerpt}</Body>
+                    ) : null}
+                    <ButtonSoft 
+                        title="Leggi di più" 
+                        onPress={() => WebBrowser.openBrowserAsync(item.url)} 
+                        variant="outline" 
+                        style={styles.readMore}
+                    />
                 </View>
-                <SubHeader style={styles.title}>{item.title}</SubHeader>
-                <Body numberOfLines={3} style={styles.excerpt}>{item.excerpt}</Body>
-
-                <ButtonSoft
-                    title="Leggi di più"
-                    onPress={() => handleOpenNews(item.url)}
-                    variant="secondary"
-                    style={styles.readMore}
-                />
-            </View>
+            </TouchableOpacity>
         </CardSoft>
     );
 
     return (
-        <View style={styles.container}>
-            <View style={styles.searchContainer}>
-                <View style={styles.searchBar}>
-                    <Search color={Theme.colors.textLight} size={20} style={styles.searchIcon} />
-                    <TextInput
-                        style={styles.searchInput}
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        placeholder="Cerca notizie..."
-                        placeholderTextColor={Theme.colors.textLight + '80'}
-                        onSubmitEditing={handleSearch}
-                        returnKeyType="search"
-                    />
-                    {searchQuery.length > 0 && (
-                        <TouchableOpacity onPress={clearSearch}>
-                            <X color={Theme.colors.textLight} size={20} />
-                        </TouchableOpacity>
-                    )}
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            <Pressable onPress={Keyboard.dismiss} style={{ flex: 1 }}>
+                <Header style={styles.screenTitle}>Notizie</Header>
+                
+                <View style={[styles.searchContainer, { backgroundColor: theme.colors.background }]}>
+                    <View style={[styles.searchBar, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+                        <Search color={theme.colors.textLight} size={18} style={styles.searchIcon} />
+                        <TextInput
+                            style={[styles.searchInput, { color: theme.colors.text }]}
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            placeholder="Cerca notizie..."
+                            placeholderTextColor={theme.colors.textLight + '80'}
+                            onSubmitEditing={handleSearch}
+                            returnKeyType="search"
+                        />
+                        {searchQuery.length > 0 && (
+                            <TouchableOpacity onPress={clearSearch}>
+                                <X color={theme.colors.textLight} size={20} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
-            </View>
 
-            {loading && !refreshing ? (
-                <View style={styles.center}>
-                    <ActivityIndicator size="large" color={Theme.colors.textLight} />
-                </View>
-            ) : (
-                <FlatList
-                    data={news}
-                    renderItem={renderItem}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={styles.list}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                    }
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Body>Nessuna notizia trovata.</Body>
-                            {isSearching && (
-                                <ButtonSoft
-                                    title="Torna alle principali"
-                                    onPress={clearSearch}
-                                    style={{ marginTop: Theme.spacing.md }}
-                                />
-                            )}
-                        </View>
-                    }
-                />
-            )}
+                {loading && !refreshing ? (
+                    <View style={styles.center}>
+                        <ActivityIndicator size="large" color={theme.colors.primary} />
+                    </View>
+                ) : (
+                    <FlatList
+                        data={news}
+                        renderItem={renderItem}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={styles.list}
+                        keyboardShouldPersistTaps="handled"
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+                        }
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Body>Nessuna notizia trovata.</Body>
+                                {isSearching && (
+                                    <ButtonSoft
+                                        title="Torna alle principali"
+                                        onPress={clearSearch}
+                                        style={{ marginTop: 20 }}
+                                    />
+                                )}
+                            </View>
+                        }
+                    />
+                )}
+            </Pressable>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.background,
-    },
-    searchContainer: {
-        padding: Theme.spacing.md,
-        backgroundColor: Theme.colors.background,
-    },
+    container: { flex: 1 },
+    screenTitle: { paddingHorizontal: 20, paddingTop: 10 },
+    searchContainer: { padding: 20 },
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Theme.colors.card,
-        borderRadius: Theme.borderRadius.sm,
-        paddingHorizontal: Theme.spacing.sm,
-        height: 48,
-        ...Theme.shadows.light,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        height: 50,
+        borderWidth: 1,
     },
-    searchIcon: {
-        marginRight: Theme.spacing.xs,
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: 16,
-        color: Theme.colors.text,
-        height: '100%',
-    },
-    center: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    list: {
-        padding: Theme.spacing.md,
-        paddingTop: 0,
-    },
-    newsCard: {
-        padding: 0,
-        overflow: 'hidden',
-        marginBottom: Theme.spacing.lg,
-    },
-    image: {
-        width: '100%',
-        height: 200,
-        backgroundColor: Theme.colors.border,
-    },
-    content: {
-        padding: Theme.spacing.md,
-    },
-    metaContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 6,
-    },
-    source: {
-        color: Theme.colors.textLight,
-        fontWeight: 'bold',
-        fontSize: 13,
-    },
-    date: {
-        color: Theme.colors.textLight,
-        fontSize: 13,
-    },
-    title: {
-        fontSize: 19,
-        lineHeight: 24,
-        marginBottom: Theme.spacing.sm,
-    },
-    excerpt: {
-        fontSize: 15,
-        lineHeight: 21,
-        marginBottom: Theme.spacing.md,
-        color: Theme.colors.text,
-        opacity: 0.8,
-    },
-    readMore: {
-        alignSelf: 'flex-start',
-        minHeight: 40,
-        paddingVertical: 8,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        marginTop: 50,
-    },
+    searchIcon: { marginRight: 8 },
+    searchInput: { flex: 1, fontSize: 16 },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    list: { padding: 20, paddingTop: 0, paddingBottom: 140 },
+    newsCard: { padding: 0, overflow: 'hidden', marginBottom: 20 },
+    image: { width: '100%', height: 200 },
+    title: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+    excerpt: { fontSize: 14, lineHeight: 20, marginBottom: 15, opacity: 0.7 },
+    readMore: { alignSelf: 'flex-start', minHeight: 40, paddingHorizontal: 15 },
+    emptyContainer: { alignItems: 'center', marginTop: 60 },
 });
